@@ -36,11 +36,21 @@ library
       base >=4.7 && <5
     , unix
     , bytestring
-    , linux-inotify
     , utf8-string
     , unordered-containers
     , stm
   default-language: Haskell2010
+  if os(linux)
+    CPP-Options:        -DOS_Linux
+    build-depends:
+      linux-inotify
+  else
+    -- TODO: should match *BSDs as well
+    if os(darwin)
+      CPP-Options:        -DOS_Linux
+      build-depends:
+        kqueue
+
 
 executable directory-watch-exe
   main-is: Main.hs

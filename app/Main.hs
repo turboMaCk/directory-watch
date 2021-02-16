@@ -3,7 +3,7 @@
 module Main where
 
 import Control.Monad (void)
-import Data.Traversable (for)
+import Data.Foldable (for_)
 import qualified System.Directory.Watch as Watch
 import System.Environment (getArgs)
 import qualified System.Posix.Files as Posix
@@ -15,23 +15,22 @@ main = do
     paths <- getArgs
 
     Watch.withManager $ \manager -> do
-        for paths $ watchPath manager
+        for_ paths $ watchPath manager
 
         Watch.keepWatching manager $ \Watch.Event{..} -> do
             putStrLn $ "Event: " <> show Watch.Event{..}
             case eventType of
                 Watch.MkDir ->
-                    watchPath manager $ filePath
+                    watchPath manager filePath
                 _ ->
                     pure ()
   where
     watchPath manager path = do
         allDirs <- Recursive.listAccessible fsRecurseConf path
 
-        void $
-            for allDirs $ \path -> do
-                Watch.watchTouch manager path
-                Watch.watchMkDir manager path
+        for_ allDirs $ \path -> do
+            Watch.watchTouch manager path
+            Watch.watchMkDir manager path
 
     fsRecurseConf :: Recursive.Conf
     fsRecurseConf =

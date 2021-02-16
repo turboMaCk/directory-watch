@@ -28,6 +28,8 @@ library
       System.Directory.Watch
   other-modules:
       Paths_directory_watch
+    , System.Directory.Watch.Portable
+    , System.Directory.Watch.Linux
   hs-source-dirs:
       src
   build-depends:

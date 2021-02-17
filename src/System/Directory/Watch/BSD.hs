@@ -160,8 +160,8 @@ internalWatch (_, events) path = do
     getEvent ident = KEvent
            { ident = ident
            , evfilter = EvfiltVnode
-           , flags = [EvDelete, EvOneshot]
-           , fflags = [NoteWrite]
+           , flags = [EvAdd, EvOneshot]
+           , fflags = [NoteDelete, NoteRevoke]
            , data_ = 0
            , udata = nullPtr
            }

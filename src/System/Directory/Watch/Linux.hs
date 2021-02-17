@@ -12,7 +12,7 @@ module System.Directory.Watch.Linux (
     isDirectory,
     getId,
     internalWatch,
-    watchBoth,
+    addBoth,
 ) where
 
 import qualified Data.ByteString.UTF8 as Utf8

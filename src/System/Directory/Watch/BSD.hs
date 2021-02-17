@@ -16,6 +16,7 @@ module System.Directory.Watch.BSD (
     addBoth,
 ) where
 
+import Data.Foldable
 import Data.Hashable
 import Foreign.C.Types (CULong (..))
 import qualified Data.HashMap.Strict as Map
@@ -23,7 +24,7 @@ import System.KQueue (KEvent(..), KEvent(..), Flag(..), FFlag(..), Filter(..))
 import Foreign.Ptr (nullPtr)
 import qualified Control.Concurrent.STM as Stm
 
-import System.Posix.IO (OpenMode (ReadOnly), defaultFileFlags, openFd)
+import System.Posix.IO (OpenMode (ReadOnly), defaultFileFlags, openFd, closeFd)
 import System.Posix.Types (Fd)
 import qualified System.KQueue as KQueue
 import Foreign.C.Types (CULong)
@@ -64,7 +65,9 @@ initBackend = do
 
 
 closeBackend :: Handle -> IO ()
-closeBackend _ = pure ()
+closeBackend (_, tEvents) = do
+    events <- Stm.atomically $ Stm.readTVar tEvents
+    for_ events $ closeFd . fromIntegral . ident
 {-# INLINE closeBackend #-}
 
 

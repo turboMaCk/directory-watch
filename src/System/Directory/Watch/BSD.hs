@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DerivingVia #-}
 
 module System.Directory.Watch.BSD (
     Id,
@@ -14,27 +15,37 @@ module System.Directory.Watch.BSD (
     internalWatch,
 ) where
 
+import Data.Hashable
+import Foreign.C.Types
 import qualified Data.HashMap.Strict as Map
+
+import qualified System.KQueue as KQueue
+import Foreign.C.Types (CULong)
 
 import System.Directory.Watch.Portable
 
 
-type Handle = ()
+type Handle = KQueue.KQueue
 
 
-type BackendEvent = ()
+type BackendEvent = KQueue.KEvent
 
 
-type Id = ()
+type Id = CULong
+
+
+instance Hashable CULong where
+    hash (CULong word) = hash word
+    hashWithSalt i (CULong word) = hashWithSalt i word
 
 
 initBackend :: IO Handle
-initBackend = undefined
+initBackend = KQueue.kqueue
 {-# INLINE initBackend #-}
 
 
 closeBackend :: Handle -> IO ()
-closeBackend = undefined
+closeBackend _ = pure ()
 {-# INLINE closeBackend #-}
 
 

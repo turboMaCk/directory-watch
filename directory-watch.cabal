@@ -48,6 +48,7 @@ library
     if os(darwin)
       CPP-Options: -DOS_BSD
       build-depends: kqueue
+                   , hashable
       other-modules: System.Directory.Watch.BSD
 
 

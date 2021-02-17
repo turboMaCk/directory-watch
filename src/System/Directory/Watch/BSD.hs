@@ -1,6 +1,14 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DerivingVia #-}
 
+
+{-| KQueue backend needs has to detect the change that occured within
+the directory on its own. See:
+See https://forums.freebsd.org/threads/kqueue-kevent-determine-filename-from-file-description.25547/#post-143319
+
+
+-}
+
 module System.Directory.Watch.BSD (
     Id,
     Handle,
@@ -75,7 +83,7 @@ toEvent :: FilePath -> BackendEvent -> Event
 toEvent path KEvent{..} = Event{..}
   where
     filePath = path
-    -- TODO: hardcoded
+    -- TODO: Will need detection
     eventType = Touch
 {-# INLINE toEvent #-}
 
@@ -87,6 +95,7 @@ addTouch (_, events) path = do
     Stm.atomically $ Stm.modifyTVar' events ((:) event)
     pure event
   where
+    -- TODO: encode event type
     getEvent ident = KEvent
            { ident = ident
            , evfilter = EvfiltVnode
@@ -105,6 +114,7 @@ addMkDir (_, events) path = do
     Stm.atomically $ Stm.modifyTVar' events ((:) event)
     pure event
   where
+    -- TODO: encode event type
     getEvent ident = KEvent
            { ident = ident
            , evfilter = EvfiltVnode
@@ -141,6 +151,7 @@ getId = id
 
 internalWatch :: Handle -> FilePath -> IO Id
 internalWatch (_, events) path = do
+    -- TODO: when file gets removed we should also close the FD and clean the @Handle@
     ident <- fromIntegral <$> openFd path ReadOnly Nothing defaultFileFlags
     let event = getEvent ident
     Stm.atomically $ Stm.modifyTVar' events ((:) event)

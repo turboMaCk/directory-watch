@@ -28,17 +28,29 @@ library
       System.Directory.Watch
   other-modules:
       Paths_directory_watch
+    , System.Directory.Watch.Portable
   hs-source-dirs:
       src
   build-depends:
       base >=4.7 && <5
     , unix
     , bytestring
-    , linux-inotify
     , utf8-string
     , unordered-containers
     , stm
   default-language: Haskell2010
+  if os(linux)
+    CPP-Options: -DOS_Linux
+    build-depends: linux-inotify
+    other-modules: System.Directory.Watch.Linux
+  else
+    -- TODO: should match *BSDs as well
+    if os(darwin)
+      CPP-Options: -DOS_BSD
+      build-depends: kqueue
+                   , hashable
+      other-modules: System.Directory.Watch.BSD
+
 
 executable directory-watch-exe
   main-is: Main.hs

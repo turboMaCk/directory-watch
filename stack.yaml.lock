@@ -22,6 +22,17 @@ packages:
       sha256: d9c958095e74384cafaa7dd3e1c2ebdd36cc8789299d79c51a7f2b3fd5c43ad7
   original:
     url: https://github.com/turboMaCk/unix-recursive/archive/4112e3b5c7838f556e9d1aa0a4a843375e867bcb.tar.gz
+- completed:
+    size: 8258
+    url: https://github.com/turboMack/kqueue/archive/768a76052f166281c8f3feb0cc4b6beee01808cd.tar.gz
+    name: kqueue
+    version: 0.2.1
+    sha256: 4633e4f58123bba9f9f45b463fb8f73a0ed8fa47f45da878dcadc8cf8983c5cf
+    pantry-tree:
+      size: 834
+      sha256: 094c4142efcb70883dc454a23f681db5daeab8528e572163868b4facd2007558
+  original:
+    url: https://github.com/turboMack/kqueue/archive/768a76052f166281c8f3feb0cc4b6beee01808cd.tar.gz
 snapshots:
 - completed:
     size: 563103

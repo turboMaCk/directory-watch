@@ -44,6 +44,9 @@ extra-deps:
   - linux-inotify-0.3.0.2@sha256:c1babde8fd104151696cf4cf95f21d72a056ead89f879abf68330476c818af44,2538
   - github: turboMaCk/unix-recursive
     commit: 4112e3b5c7838f556e9d1aa0a4a843375e867bcb
+  - github: turboMack/kqueue
+    commit: 768a76052f166281c8f3feb0cc4b6beee01808cd
+
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

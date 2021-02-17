@@ -22,6 +22,7 @@ main = do
             case eventType of
                 Watch.MkDir ->
                     watchPath manager filePath
+
                 _ ->
                     pure ()
   where
@@ -30,7 +31,6 @@ main = do
 
         for_ allDirs $ \path -> do
             Watch.watchTouch manager path
-            Watch.watchMkDir manager path
 
     fsRecurseConf :: Recursive.Conf
     fsRecurseConf =

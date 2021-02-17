@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE CPP #-}
 
 module System.Directory.Watch (
     Event (..),
@@ -7,44 +8,32 @@ module System.Directory.Watch (
     withManager,
     watchTouch,
     watchMkDir,
+    watchBoth,
     getEvent,
     keepWatching,
 ) where
 
 import Control.Concurrent (forkIO)
-import qualified Control.Concurrent.STM as Stm
 import Control.Exception (bracket)
 import Control.Monad (forever, when)
-import qualified Data.ByteString.UTF8 as Utf8
 import Data.Functor (void)
-import qualified Data.HashMap.Strict as Map
 import Data.Maybe (fromMaybe)
-import qualified System.Linux.Inotify as Inotify
+
+import qualified Control.Concurrent.STM as Stm
+import qualified Data.HashMap.Strict as Map
+
+#ifdef OS_Linux
+import System.Directory.Watch.Linux
+#endif
+
+#ifdef OS_BSD
+import System.Directory.Watch.BSD
+#endif
+
+import System.Directory.Watch.Portable
 
 
-data EventType
-    = MkDir
-    | Touch
-    deriving (Show)
-
-
-data Event = Event
-    { eventType :: !EventType
-    , filePath :: !FilePath
-    }
-    deriving (Show)
-
-
-toEvent :: FilePath -> Inotify.Event -> Event
-toEvent path Inotify.Event{..} = Event{..}
-  where
-    filePath = path <> "/" <> Utf8.toString name
-    eventType
-        | Inotify.isSubset Inotify.in_ISDIR mask = MkDir
-        | otherwise = Touch
-
-
-type Registery = Map.HashMap Inotify.Watch FilePath
+type Registery = Map.HashMap Id FilePath
 
 
 {- | In theory these 2 should aline in a way that
@@ -52,12 +41,11 @@ type Registery = Map.HashMap Inotify.Watch FilePath
  however this seems to be more robust especially since
  we allow for concurrency
 -}
-type InternalRegMap = Map.HashMap Inotify.Watch Inotify.Watch
-
+type InternalRegMap = Map.HashMap Id Id
 
 data Manager = Manager
-    { handle :: !Inotify.Inotify
-    , internalHandle :: !Inotify.Inotify
+    { handle :: !Handle
+    , internalHandle :: !Handle
     , registery :: !(Stm.TVar Registery)
     , internalRegMap :: !(Stm.TVar InternalRegMap)
     }
@@ -65,34 +53,34 @@ data Manager = Manager
 
 withManager :: (Manager -> IO a) -> IO a
 withManager action =
-    bracket Inotify.init Inotify.close $ \handle ->
-        bracket Inotify.init Inotify.close $ \internalHandle -> do
+    bracket initBackend closeBackend $ \handle ->
+        bracket initBackend closeBackend $ \internalHandle -> do
             registery <- Stm.newTVarIO Map.empty
             internalRegMap <- Stm.newTVarIO Map.empty
 
             -- Handle removal of watched directories
             forkIO $
                 forever $ do
-                    Inotify.Event{..} <- Inotify.getEvent internalHandle
-                    putStrLn $ "[INTERNAL] INotify event: " <> show Inotify.Event{..}
+                    backendEvent <- getBackendEvent internalHandle
+                    putStrLn $ "[INTERNAL] INotify event: " <> show backendEvent
 
-                    when (Inotify.isSubset Inotify.in_ISDIR mask) $
+                    when (isDirectory backendEvent) $
                         Stm.atomically $ do
-                            mWatch <- Map.lookup wd <$> Stm.readTVar internalRegMap
+                            mWatch <- Map.lookup (getId backendEvent) <$> Stm.readTVar internalRegMap
 
                             -- Remove from registery
                             whenJust mWatch $
                                 Stm.modifyTVar' registery . Map.delete
 
                             -- Remove from internal map
-                            Stm.modifyTVar' internalRegMap $ Map.delete wd
+                            Stm.modifyTVar' internalRegMap $ Map.delete $ getId backendEvent
 
             action $ Manager{..}
 
 
-watching :: Manager -> FilePath -> Inotify.Watch -> IO ()
+watching :: Manager -> FilePath -> Id -> IO ()
 watching Manager{..} path watch = do
-    internalWatch <- Inotify.addWatch internalHandle path Inotify.in_DELETE_SELF
+    internalWatch <- internalWatch internalHandle path
     Stm.atomically $ do
         -- Add to registery
         Stm.modifyTVar' registery $ Map.insert watch path
@@ -104,7 +92,7 @@ watchTouch :: Manager -> FilePath -> IO ()
 watchTouch Manager{..} path = do
     -- TODO: check if directory
     putStrLn $ "watchTouch: " <> path
-    watch <- Inotify.addWatch handle path Inotify.in_MODIFY
+    watch <- addTouch handle path
     watching Manager{..} path watch
 
 
@@ -112,17 +100,24 @@ watchMkDir :: Manager -> FilePath -> IO ()
 watchMkDir Manager{..} path = do
     -- TODO: check if directory
     putStrLn $ "watchMkdir: " <> path
-    watch <- Inotify.addWatch handle path Inotify.in_CREATE
+    watch <- addMkDir handle path
     watching Manager{..} path watch
+
+
+watchBoth :: Manager -> FilePath -> IO ()
+watchBoth Manager{..} path = do
+  putStrLn $  "watchBoth: " <> path
+  watch <- addBoth handle path
+  watching Manager{..} path watch
 
 
 getEvent :: Manager -> (Event -> IO ()) -> IO ()
 getEvent Manager{..} f = do
-    iEvent <- Inotify.getEvent handle
-    putStrLn $ "INotify event: " <> show iEvent
+    iEvent <- getBackendEvent handle
+    putStrLn $ "Backend event: " <> show iEvent
     snapshot <- Stm.readTVarIO registery
 
-    let mPath = Map.lookup (Inotify.wd iEvent) snapshot
+    let mPath = Map.lookup (getId iEvent) snapshot
     case mPath of
         Just path -> f $ toEvent path iEvent
         Nothing -> putStrLn $ "[ERROR] can't find path for " <> show iEvent

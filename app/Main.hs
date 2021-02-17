@@ -17,7 +17,7 @@ main = do
     Watch.withManager $ \manager -> do
         for_ paths $ watchPath manager
 
-        Watch.getEvent manager $ \Watch.Event{..} -> do
+        Watch.keepWatching manager $ \Watch.Event{..} -> do
             putStrLn $ "Event: " <> show Watch.Event{..}
             case eventType of
                 Watch.MkDir ->

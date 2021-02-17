@@ -114,7 +114,7 @@ watchBoth Manager{..} path = do
 getEvent :: Manager -> (Event -> IO ()) -> IO ()
 getEvent Manager{..} f = do
     iEvent <- getBackendEvent handle
-    putStrLn $ "INotify event: " <> show iEvent
+    putStrLn $ "Backend event: " <> show iEvent
     snapshot <- Stm.readTVarIO registery
 
     let mPath = Map.lookup (getId iEvent) snapshot

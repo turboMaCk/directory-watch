@@ -19,20 +19,25 @@ module System.Directory.Watch.BSD (
 import Data.Hashable
 import Foreign.C.Types (CULong (..))
 import qualified Data.HashMap.Strict as Map
+import System.KQueue (KEvent(..), KEvent(..), Flag(..), FFlag(..), Filter(..))
+import Foreign.Ptr (nullPtr)
+import qualified Control.Concurrent.STM as Stm
 
+import System.Posix.IO (OpenMode (ReadOnly), defaultFileFlags, openFd)
+import System.Posix.Types (Fd)
 import qualified System.KQueue as KQueue
 import Foreign.C.Types (CULong)
 
 import System.Directory.Watch.Portable
 
 
-type Handle = KQueue.KQueue
+type Handle = (KQueue.KQueue, Stm.TVar [KEvent])
 
 
-type BackendEvent = KQueue.KEvent
+type BackendEvent = KEvent
 
 
-type Id = CULong
+type Id = KEvent
 
 
 instance Hashable CULong where
@@ -40,8 +45,16 @@ instance Hashable CULong where
     hashWithSalt i (CULong word) = hashWithSalt i word
 
 
+instance Hashable KQueue.KEvent where
+    hash KEvent{..} = hash ident
+    hashWithSalt i KEvent{..} = hashWithSalt i ident
+
+
 initBackend :: IO Handle
-initBackend = KQueue.kqueue
+initBackend = do
+  kq <- KQueue.kqueue
+  events <- Stm.newTVarIO []
+  pure (kq, events)
 {-# INLINE initBackend #-}
 
 
@@ -51,17 +64,47 @@ closeBackend _ = pure ()
 
 
 toEvent :: FilePath -> BackendEvent -> Event
-toEvent path _ = undefined
+toEvent path KEvent{..} = Event{..}
+  where
+    filePath = path
+    -- TODO: hardcoded
+    eventType = Touch
 {-# INLINE toEvent #-}
 
 
 addTouch :: Handle -> FilePath -> IO Id
-addTouch handle path = undefined
+addTouch (_, events) path = do
+    ident <- fromIntegral <$> openFd path ReadOnly Nothing defaultFileFlags
+    let event = getEvent ident
+    Stm.atomically $ Stm.modifyTVar' events ((:) event)
+    pure event
+  where
+    getEvent ident = KEvent
+           { ident = ident
+           , evfilter = EvfiltVnode
+           , flags = [EvAdd]
+           , fflags = [NoteWrite]
+           , data_ = 0
+           , udata = nullPtr
+           }
 {-# INLINE addTouch #-}
 
 
 addMkDir :: Handle -> FilePath -> IO Id
-addMkDir handle path = undefined
+addMkDir (_, events) path = do
+    ident <- fromIntegral <$> openFd path ReadOnly Nothing defaultFileFlags
+    let event = getEvent ident
+    Stm.atomically $ Stm.modifyTVar' events ((:) event)
+    pure event
+  where
+    getEvent ident = KEvent
+           { ident = ident
+           , evfilter = EvfiltVnode
+           , flags = [EvAdd]
+           , fflags = [NoteWrite]
+           , data_ = 0
+           , udata = nullPtr
+           }
 {-# INLINE addMkDir #-}
 
 
@@ -71,20 +114,36 @@ addBoth handle path = undefined
 
 
 getBackendEvent :: Handle -> IO BackendEvent
-getBackendEvent = undefined
+getBackendEvent (kq, tEvents) = do
+    events <- Stm.atomically $ Stm.readTVar tEvents
+    [e] <- KQueue.kevent kq events 1 Nothing
+    pure e
 {-# INLINE getBackendEvent #-}
 
 
 isDirectory :: BackendEvent -> Bool
-isDirectory _ = undefined
+isDirectory KEvent{..} = evfilter == EvfiltVnode
 {-# INLINE isDirectory #-}
 
 
 getId :: BackendEvent -> Id
-getId _ = undefined
+getId = id
 {-# INLINE getId #-}
 
 
 internalWatch :: Handle -> FilePath -> IO Id
-internalWatch handle path = undefined
+internalWatch (_, events) path = do
+    ident <- fromIntegral <$> openFd path ReadOnly Nothing defaultFileFlags
+    let event = getEvent ident
+    Stm.atomically $ Stm.modifyTVar' events ((:) event)
+    pure event
+  where
+    getEvent ident = KEvent
+           { ident = ident
+           , evfilter = EvfiltVnode
+           , flags = [EvDelete]
+           , fflags = [NoteWrite]
+           , data_ = 0
+           , udata = nullPtr
+           }
 {-# INLINE internalWatch #-}

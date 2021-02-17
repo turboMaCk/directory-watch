@@ -17,11 +17,12 @@ main = do
     Watch.withManager $ \manager -> do
         for_ paths $ watchPath manager
 
-        Watch.keepWatching manager $ \Watch.Event{..} -> do
+        Watch.getEvent manager $ \Watch.Event{..} -> do
             putStrLn $ "Event: " <> show Watch.Event{..}
             case eventType of
                 Watch.MkDir ->
                     watchPath manager filePath
+
                 _ ->
                     pure ()
   where
@@ -29,7 +30,7 @@ main = do
         allDirs <- Recursive.listAccessible fsRecurseConf path
 
         for_ allDirs $ \path -> do
-            Watch.watchBoth manager path
+            Watch.watchTouch manager path
 
     fsRecurseConf :: Recursive.Conf
     fsRecurseConf =

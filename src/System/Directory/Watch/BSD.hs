@@ -46,8 +46,13 @@ instance Hashable CULong where
 
 
 instance Hashable KQueue.KEvent where
-    hash KEvent{..} = hash ident
-    hashWithSalt i KEvent{..} = hashWithSalt i ident
+    -- From documentation:
+    -- A kevent is iden-tified identifiedtified
+    -- by an (ident, filter) pair and specifies the interesting conditions
+    -- conditionstions to be notified about for that pair.  An (ident, filter) pair can
+    -- only appear once is a given kqueue.
+    hash KEvent{..} = hash (ident, fromEnum evfilter)
+    hashWithSalt i KEvent{..} = hashWithSalt i (ident, fromEnum evfilter)
 
 
 initBackend :: IO Handle

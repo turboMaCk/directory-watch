@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE CPP #-}
 
 module System.Directory.Watch (
     Event (..),
@@ -20,9 +21,26 @@ import Data.Maybe (fromMaybe)
 import qualified Control.Concurrent.STM as Stm
 import qualified Data.HashMap.Strict as Map
 
+#ifdef OS_Linux
 import System.Directory.Watch.Linux
+#endif
+
+#ifdef OS_BSD
+import System.Directory.Watch.BSD
+#endif
+
 import System.Directory.Watch.Portable
 
+
+type Registery = Map.HashMap Id FilePath
+
+
+{- | In theory these 2 should aline in a way that
+ 3 in internal map will be 3 in the registery as well
+ however this seems to be more robust especially since
+ we allow for concurrency
+-}
+type InternalRegMap = Map.HashMap Id Id
 
 data Manager = Manager
     { handle :: !Handle

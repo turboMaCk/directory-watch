@@ -29,7 +29,6 @@ library
   other-modules:
       Paths_directory_watch
     , System.Directory.Watch.Portable
-    , System.Directory.Watch.Linux
   hs-source-dirs:
       src
   build-depends:
@@ -41,15 +40,15 @@ library
     , stm
   default-language: Haskell2010
   if os(linux)
-    CPP-Options:        -DOS_Linux
-    build-depends:
-      linux-inotify
+    CPP-Options: -DOS_Linux
+    build-depends: linux-inotify
+    other-modules: System.Directory.Watch.Linux
   else
     -- TODO: should match *BSDs as well
     if os(darwin)
-      CPP-Options:        -DOS_Linux
-      build-depends:
-        kqueue
+      CPP-Options: -DOS_BSD
+      build-depends: kqueue
+      other-modules: System.Directory.Watch.BSD
 
 
 executable directory-watch-exe

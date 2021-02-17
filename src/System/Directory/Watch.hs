@@ -8,6 +8,7 @@ module System.Directory.Watch (
     withManager,
     watchTouch,
     watchMkDir,
+    watchBoth,
     getEvent,
     keepWatching,
 ) where
@@ -101,6 +102,13 @@ watchMkDir Manager{..} path = do
     putStrLn $ "watchMkdir: " <> path
     watch <- addMkDir handle path
     watching Manager{..} path watch
+
+
+watchBoth :: Manager -> FilePath -> IO ()
+watchBoth Manager{..} path = do
+  putStrLn $  "watchBoth: " <> path
+  watch <- addBoth handle path
+  watching Manager{..} path watch
 
 
 getEvent :: Manager -> (Event -> IO ()) -> IO ()

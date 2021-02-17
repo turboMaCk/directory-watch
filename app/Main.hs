@@ -29,8 +29,7 @@ main = do
         allDirs <- Recursive.listAccessible fsRecurseConf path
 
         for_ allDirs $ \path -> do
-            Watch.watchTouch manager path
-            Watch.watchMkDir manager path
+            Watch.watchBoth manager path
 
     fsRecurseConf :: Recursive.Conf
     fsRecurseConf =

@@ -12,6 +12,7 @@ module System.Directory.Watch.Linux (
     isDirectory,
     getId,
     internalWatch,
+    watchBoth,
 ) where
 
 import qualified Data.ByteString.UTF8 as Utf8
@@ -60,6 +61,12 @@ addMkDir :: Handle -> FilePath -> IO Id
 addMkDir handle path =
     Inotify.addWatch handle path Inotify.in_CREATE
 {-# INLINE addMkDir #-}
+
+
+addBoth :: Handle -> FilePath -> IO Id
+addBoth handle path =
+    Inotify.addWatch handle path $ Inotify.in_CREATE `Inotify.isect` Inotify.in_MODIFY
+{-# INLINE addBoth #-}
 
 
 getBackendEvent :: Handle -> IO BackendEvent

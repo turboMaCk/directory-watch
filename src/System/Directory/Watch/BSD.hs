@@ -13,10 +13,11 @@ module System.Directory.Watch.BSD (
     isDirectory,
     getId,
     internalWatch,
+    addBoth,
 ) where
 
 import Data.Hashable
-import Foreign.C.Types
+import Foreign.C.Types (CULong (..))
 import qualified Data.HashMap.Strict as Map
 
 import qualified System.KQueue as KQueue
@@ -62,6 +63,11 @@ addTouch handle path = undefined
 addMkDir :: Handle -> FilePath -> IO Id
 addMkDir handle path = undefined
 {-# INLINE addMkDir #-}
+
+
+addBoth :: Handle -> FilePath -> IO Id
+addBoth handle path = undefined
+{-# INLINE addBoth #-}
 
 
 getBackendEvent :: Handle -> IO BackendEvent

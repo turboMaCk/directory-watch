@@ -20,6 +20,6 @@ module System.Directory.Watch.Backend (
 import System.Directory.Watch.Backend.Inotify
 #endif
 
-#ifdef OS_BSD
+#ifdef OS_MacOS
 import System.Directory.Watch.Backend.KQueue
 #endif

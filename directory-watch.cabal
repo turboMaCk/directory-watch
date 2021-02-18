@@ -47,7 +47,7 @@ library
   else
     -- TODO: should match *BSDs as well
     if os(darwin)
-      CPP-Options: -DOS_BSD
+      CPP-Options: -DOS_MacOS
       build-depends: kqueue
                    , hashable
       other-modules: System.Directory.Watch.Backend.KQueue

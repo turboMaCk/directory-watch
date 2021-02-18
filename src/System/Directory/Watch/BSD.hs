@@ -1,14 +1,10 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE RecordWildCards #-}
 
-
-{-| KQueue backend needs has to detect the change that occured within
+{- | KQueue backend needs has to detect the change that occured within
 the directory on its own. See:
 See https://forums.freebsd.org/threads/kqueue-kevent-determine-filename-from-file-description.25547/#post-143319
-
-
 -}
-
 module System.Directory.Watch.BSD (
     Id,
     Handle,
@@ -24,18 +20,18 @@ module System.Directory.Watch.BSD (
     addBoth,
 ) where
 
+import qualified Control.Concurrent.STM as Stm
 import Data.Foldable
+import qualified Data.HashMap.Strict as Map
 import Data.Hashable
 import Foreign.C.Types (CULong (..))
-import qualified Data.HashMap.Strict as Map
-import System.KQueue (KEvent(..), KEvent(..), Flag(..), FFlag(..), Filter(..))
 import Foreign.Ptr (nullPtr)
-import qualified Control.Concurrent.STM as Stm
+import System.KQueue (FFlag (..), Filter (..), Flag (..), KEvent (..))
 
-import System.Posix.IO (OpenMode (ReadOnly), defaultFileFlags, openFd, closeFd)
-import System.Posix.Types (Fd)
-import qualified System.KQueue as KQueue
 import Foreign.C.Types (CULong)
+import qualified System.KQueue as KQueue
+import System.Posix.IO (OpenMode (ReadOnly), closeFd, defaultFileFlags, openFd)
+import System.Posix.Types (Fd)
 
 import System.Directory.Watch.Portable
 
@@ -66,9 +62,9 @@ instance Hashable KQueue.KEvent where
 
 initBackend :: IO Handle
 initBackend = do
-  kq <- KQueue.kqueue
-  events <- Stm.newTVarIO []
-  pure (kq, events)
+    kq <- KQueue.kqueue
+    events <- Stm.newTVarIO []
+    pure (kq, events)
 {-# INLINE initBackend #-}
 
 
@@ -96,14 +92,15 @@ addTouch (_, events) path = do
     pure event
   where
     -- TODO: encode event type
-    getEvent ident = KEvent
-           { ident = ident
-           , evfilter = EvfiltVnode
-           , flags = [EvAdd, EvOneshot]
-           , fflags = [NoteWrite]
-           , data_ = 0
-           , udata = nullPtr
-           }
+    getEvent ident =
+        KEvent
+            { ident = ident
+            , evfilter = EvfiltVnode
+            , flags = [EvAdd, EvOneshot]
+            , fflags = [NoteWrite]
+            , data_ = 0
+            , udata = nullPtr
+            }
 {-# INLINE addTouch #-}
 
 
@@ -115,14 +112,15 @@ addMkDir (_, events) path = do
     pure event
   where
     -- TODO: encode event type
-    getEvent ident = KEvent
-           { ident = ident
-           , evfilter = EvfiltVnode
-           , flags = [EvAdd, EvOneshot]
-           , fflags = [NoteWrite]
-           , data_ = 0
-           , udata = nullPtr
-           }
+    getEvent ident =
+        KEvent
+            { ident = ident
+            , evfilter = EvfiltVnode
+            , flags = [EvAdd, EvOneshot]
+            , fflags = [NoteWrite]
+            , data_ = 0
+            , udata = nullPtr
+            }
 {-# INLINE addMkDir #-}
 
 
@@ -157,12 +155,13 @@ internalWatch (_, events) path = do
     Stm.atomically $ Stm.modifyTVar' events ((:) event)
     pure event
   where
-    getEvent ident = KEvent
-           { ident = ident
-           , evfilter = EvfiltVnode
-           , flags = [EvAdd, EvOneshot]
-           , fflags = [NoteDelete, NoteRevoke]
-           , data_ = 0
-           , udata = nullPtr
-           }
+    getEvent ident =
+        KEvent
+            { ident = ident
+            , evfilter = EvfiltVnode
+            , flags = [EvAdd, EvOneshot]
+            , fflags = [NoteDelete, NoteRevoke]
+            , data_ = 0
+            , udata = nullPtr
+            }
 {-# INLINE internalWatch #-}

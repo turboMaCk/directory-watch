@@ -47,15 +47,15 @@ data Manager = Manager
 
 withManager :: (Manager -> IO a) -> IO a
 withManager action =
-    bracket Backend.initBackend Backend.closeBackend $ \handle ->
-        bracket Backend.initBackend Backend.closeBackend $ \internalHandle -> do
+    bracket Backend.init Backend.close $ \handle ->
+        bracket Backend.init Backend.close $ \internalHandle -> do
             registery <- Stm.newTVarIO Map.empty
             internalRegMap <- Stm.newTVarIO Map.empty
 
             -- Handle removal of watched directories
             forkIO $
                 forever $ do
-                    backendEvent <- Backend.getBackendEvent internalHandle
+                    backendEvent <- Backend.getEvent internalHandle
                     putStrLn $ "[INTERNAL] INotify event: " <> show backendEvent
 
                     when (Backend.isDirectory backendEvent) $
@@ -107,7 +107,7 @@ watchBoth Manager{..} path = do
 
 getEvent :: Manager -> (Event -> IO ()) -> IO ()
 getEvent Manager{..} f = do
-    iEvent <- Backend.getBackendEvent handle
+    iEvent <- Backend.getEvent handle
     putStrLn $ "Backend event: " <> show iEvent
     snapshot <- Stm.readTVarIO registery
 

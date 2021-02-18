@@ -3,17 +3,19 @@
 module System.Directory.Watch.Backend (
     Id,
     Handle,
-    initBackend,
-    closeBackend,
+    init,
+    close,
     toEvent,
     addTouch,
     addMkDir,
-    getBackendEvent,
+    getEvent,
     isDirectory,
     getId,
     internalWatch,
     addBoth,
 ) where
+
+import Prelude hiding (init)
 
 
 #ifdef OS_Linux

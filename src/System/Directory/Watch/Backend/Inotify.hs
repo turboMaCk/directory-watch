@@ -5,6 +5,7 @@ module System.Directory.Watch.Backend.Inotify where
 import qualified Data.ByteString.UTF8 as Utf8
 import qualified Data.HashMap.Strict as Map
 import qualified System.Linux.Inotify as Inotify
+import Prelude hiding (init)
 
 import System.Directory.Watch.Portable
 
@@ -18,14 +19,14 @@ type BackendEvent = Inotify.Event
 type Id = Inotify.Watch
 
 
-initBackend :: IO Handle
-initBackend = Inotify.init
-{-# INLINE initBackend #-}
+init :: IO Handle
+init = Inotify.init
+{-# INLINE init #-}
 
 
-closeBackend :: Handle -> IO ()
-closeBackend = Inotify.close
-{-# INLINE closeBackend #-}
+close :: Handle -> IO ()
+close = Inotify.close
+{-# INLINE close #-}
 
 
 toEvent :: FilePath -> BackendEvent -> Event
@@ -56,9 +57,9 @@ addBoth handle path =
 {-# INLINE addBoth #-}
 
 
-getBackendEvent :: Handle -> IO BackendEvent
-getBackendEvent = Inotify.getEvent
-{-# INLINE getBackendEvent #-}
+getEvent :: Handle -> IO BackendEvent
+getEvent = Inotify.getEvent
+{-# INLINE getEvent #-}
 
 
 isDirectory :: BackendEvent -> Bool

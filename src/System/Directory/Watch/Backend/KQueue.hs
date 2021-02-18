@@ -5,20 +5,7 @@
 the directory on its own. See:
 See https://forums.freebsd.org/threads/kqueue-kevent-determine-filename-from-file-description.25547/#post-143319
 -}
-module System.Directory.Watch.BSD (
-    Id,
-    Handle,
-    initBackend,
-    closeBackend,
-    toEvent,
-    addTouch,
-    addMkDir,
-    getBackendEvent,
-    isDirectory,
-    getId,
-    internalWatch,
-    addBoth,
-) where
+module System.Directory.Watch.BSD where
 
 import qualified Control.Concurrent.STM as Stm
 import Data.Foldable
@@ -27,6 +14,7 @@ import Data.Hashable
 import Foreign.C.Types (CULong (..))
 import Foreign.Ptr (nullPtr)
 import System.KQueue (FFlag (..), Filter (..), Flag (..), KEvent (..))
+import Prelude hiding (init)
 
 import Foreign.C.Types (CULong)
 import qualified System.KQueue as KQueue
@@ -60,19 +48,19 @@ instance Hashable KQueue.KEvent where
     hashWithSalt i KEvent{..} = hashWithSalt i (ident, fromEnum evfilter)
 
 
-initBackend :: IO Handle
-initBackend = do
+init :: IO Handle
+init = do
     kq <- KQueue.kqueue
     events <- Stm.newTVarIO []
     pure (kq, events)
-{-# INLINE initBackend #-}
+{-# INLINE init #-}
 
 
-closeBackend :: Handle -> IO ()
-closeBackend (_, tEvents) = do
+close :: Handle -> IO ()
+close (_, tEvents) = do
     events <- Stm.atomically $ Stm.readTVar tEvents
     for_ events $ closeFd . fromIntegral . ident
-{-# INLINE closeBackend #-}
+{-# INLINE close #-}
 
 
 toEvent :: FilePath -> BackendEvent -> Event
@@ -129,12 +117,12 @@ addBoth handle path = undefined
 {-# INLINE addBoth #-}
 
 
-getBackendEvent :: Handle -> IO BackendEvent
-getBackendEvent (kq, tEvents) = do
+getEvent :: Handle -> IO BackendEvent
+getEvent (kq, tEvents) = do
     events <- Stm.atomically $ Stm.readTVar tEvents
     [e] <- KQueue.kevent kq events 1 Nothing
     pure e
-{-# INLINE getBackendEvent #-}
+{-# INLINE getEvent #-}
 
 
 isDirectory :: BackendEvent -> Bool

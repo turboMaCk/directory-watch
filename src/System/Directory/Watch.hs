@@ -1,5 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module System.Directory.Watch (
     Event (..),
@@ -22,18 +22,11 @@ import Data.Maybe (fromMaybe)
 import qualified Control.Concurrent.STM as Stm
 import qualified Data.HashMap.Strict as Map
 
-#ifdef OS_Linux
-import System.Directory.Watch.Linux
-#endif
-
-#ifdef OS_BSD
-import System.Directory.Watch.BSD
-#endif
-
+import qualified System.Directory.Watch.Backend as Backend
 import System.Directory.Watch.Portable
 
 
-type Registery = Map.HashMap Id FilePath
+type Registery = Map.HashMap Backend.Id FilePath
 
 
 {- | In theory these 2 should aline in a way that
@@ -41,11 +34,12 @@ type Registery = Map.HashMap Id FilePath
  however this seems to be more robust especially since
  we allow for concurrency
 -}
-type InternalRegMap = Map.HashMap Id Id
+type InternalRegMap = Map.HashMap Backend.Id Backend.Id
+
 
 data Manager = Manager
-    { handle :: !Handle
-    , internalHandle :: !Handle
+    { handle :: !Backend.Handle
+    , internalHandle :: !Backend.Handle
     , registery :: !(Stm.TVar Registery)
     , internalRegMap :: !(Stm.TVar InternalRegMap)
     }
@@ -53,34 +47,34 @@ data Manager = Manager
 
 withManager :: (Manager -> IO a) -> IO a
 withManager action =
-    bracket initBackend closeBackend $ \handle ->
-        bracket initBackend closeBackend $ \internalHandle -> do
+    bracket Backend.initBackend Backend.closeBackend $ \handle ->
+        bracket Backend.initBackend Backend.closeBackend $ \internalHandle -> do
             registery <- Stm.newTVarIO Map.empty
             internalRegMap <- Stm.newTVarIO Map.empty
 
             -- Handle removal of watched directories
             forkIO $
                 forever $ do
-                    backendEvent <- getBackendEvent internalHandle
+                    backendEvent <- Backend.getBackendEvent internalHandle
                     putStrLn $ "[INTERNAL] INotify event: " <> show backendEvent
 
-                    when (isDirectory backendEvent) $
+                    when (Backend.isDirectory backendEvent) $
                         Stm.atomically $ do
-                            mWatch <- Map.lookup (getId backendEvent) <$> Stm.readTVar internalRegMap
+                            mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
 
                             -- Remove from registery
                             whenJust mWatch $
                                 Stm.modifyTVar' registery . Map.delete
 
                             -- Remove from internal map
-                            Stm.modifyTVar' internalRegMap $ Map.delete $ getId backendEvent
+                            Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
 
             action $ Manager{..}
 
 
-watching :: Manager -> FilePath -> Id -> IO ()
+watching :: Manager -> FilePath -> Backend.Id -> IO ()
 watching Manager{..} path watch = do
-    internalWatch <- internalWatch internalHandle path
+    internalWatch <- Backend.internalWatch internalHandle path
     Stm.atomically $ do
         -- Add to registery
         Stm.modifyTVar' registery $ Map.insert watch path
@@ -92,7 +86,7 @@ watchTouch :: Manager -> FilePath -> IO ()
 watchTouch Manager{..} path = do
     -- TODO: check if directory
     putStrLn $ "watchTouch: " <> path
-    watch <- addTouch handle path
+    watch <- Backend.addTouch handle path
     watching Manager{..} path watch
 
 
@@ -100,26 +94,26 @@ watchMkDir :: Manager -> FilePath -> IO ()
 watchMkDir Manager{..} path = do
     -- TODO: check if directory
     putStrLn $ "watchMkdir: " <> path
-    watch <- addMkDir handle path
+    watch <- Backend.addMkDir handle path
     watching Manager{..} path watch
 
 
 watchBoth :: Manager -> FilePath -> IO ()
 watchBoth Manager{..} path = do
-  putStrLn $  "watchBoth: " <> path
-  watch <- addBoth handle path
-  watching Manager{..} path watch
+    putStrLn $ "watchBoth: " <> path
+    watch <- Backend.addBoth handle path
+    watching Manager{..} path watch
 
 
 getEvent :: Manager -> (Event -> IO ()) -> IO ()
 getEvent Manager{..} f = do
-    iEvent <- getBackendEvent handle
+    iEvent <- Backend.getBackendEvent handle
     putStrLn $ "Backend event: " <> show iEvent
     snapshot <- Stm.readTVarIO registery
 
-    let mPath = Map.lookup (getId iEvent) snapshot
+    let mPath = Map.lookup (Backend.getId iEvent) snapshot
     case mPath of
-        Just path -> f $ toEvent path iEvent
+        Just path -> f $ Backend.toEvent path iEvent
         Nothing -> putStrLn $ "[ERROR] can't find path for " <> show iEvent
 
 

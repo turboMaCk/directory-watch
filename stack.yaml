@@ -43,7 +43,7 @@ packages:
 extra-deps:
   - linux-inotify-0.3.0.2@sha256:c1babde8fd104151696cf4cf95f21d72a056ead89f879abf68330476c818af44,2538
   - github: turboMaCk/unix-recursive
-    commit: 4112e3b5c7838f556e9d1aa0a4a843375e867bcb
+    commit: df046236b2d6d65daed36068c9e06b8af8f93586
   - github: turboMack/kqueue
     commit: 768a76052f166281c8f3feb0cc4b6beee01808cd
 

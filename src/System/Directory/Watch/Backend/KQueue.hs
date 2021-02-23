@@ -5,7 +5,7 @@
 the directory on its own. See:
 See https://forums.freebsd.org/threads/kqueue-kevent-determine-filename-from-file-description.25547/#post-143319
 -}
-module System.Directory.Watch.BSD where
+module System.Directory.Watch.Backend.KQueue where
 
 import qualified Control.Concurrent.STM as Stm
 import Data.Foldable

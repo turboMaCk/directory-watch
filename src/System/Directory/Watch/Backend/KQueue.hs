@@ -72,12 +72,12 @@ toEvent path KEvent{..} = Event{..}
 {-# INLINE toEvent #-}
 
 
-watchDirectory :: Handle -> FilePath -> IO Id
+watchDirectory :: Handle -> FilePath -> IO [Id]
 watchDirectory (_, events) path = do
     ident <- fromIntegral <$> openFd path ReadOnly Nothing defaultFileFlags
     let event = getEvent ident
     Stm.atomically $ Stm.modifyTVar' events ((:) event)
-    pure event
+    pure [event]
   where
     -- TODO: encode event type
     getEvent ident =

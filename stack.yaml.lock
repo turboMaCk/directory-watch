@@ -12,16 +12,16 @@ packages:
   original:
     hackage: linux-inotify-0.3.0.2@sha256:c1babde8fd104151696cf4cf95f21d72a056ead89f879abf68330476c818af44,2538
 - completed:
-    size: 8445
-    url: https://github.com/turboMaCk/unix-recursive/archive/4112e3b5c7838f556e9d1aa0a4a843375e867bcb.tar.gz
+    size: 179350
+    url: https://github.com/turboMaCk/unix-recursive/archive/df046236b2d6d65daed36068c9e06b8af8f93586.tar.gz
     name: unix-recursive
     version: 0.1.0.0
-    sha256: 0d8ab47157fa8427f26e0c60652512c65646d12d0f2caa6bf6fee608210a991f
+    sha256: 884d847d78d614043b1a2cf629a748182a8f340fbb004f1e209152ced35c4441
     pantry-tree:
-      size: 1193
-      sha256: d9c958095e74384cafaa7dd3e1c2ebdd36cc8789299d79c51a7f2b3fd5c43ad7
+      size: 2439
+      sha256: d05e064afa8bf0965e960d9478076a0fb6d2ab69d9a4b070ba73b7ec6a502c35
   original:
-    url: https://github.com/turboMaCk/unix-recursive/archive/4112e3b5c7838f556e9d1aa0a4a843375e867bcb.tar.gz
+    url: https://github.com/turboMaCk/unix-recursive/archive/df046236b2d6d65daed36068c9e06b8af8f93586.tar.gz
 - completed:
     size: 8258
     url: https://github.com/turboMack/kqueue/archive/768a76052f166281c8f3feb0cc4b6beee01808cd.tar.gz

@@ -27,15 +27,8 @@ main = do
                     pure ()
   where
     watchPath manager path = do
-        allDirs <- Recursive.listAccessible fsRecurseConf path
+        allDirs <- Recursive.listDirectories path
 
         for_ allDirs $ \path -> do
             Watch.watchTouch manager path
-
-    fsRecurseConf :: Recursive.Conf
-    fsRecurseConf =
-        Recursive.Conf
-            { Recursive.preCheck = const True
-            , Recursive.postCheck = \f _ -> Posix.isDirectory f
-            , Recursive.followSymlinks = False
-            }
+            Watch.watchMkDir manager path

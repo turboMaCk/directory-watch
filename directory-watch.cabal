@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       System.Directory.Watch
+    , System.Directory.Watch.Backend
   other-modules:
       Paths_directory_watch
     , System.Directory.Watch.Portable
@@ -42,14 +43,14 @@ library
   if os(linux)
     CPP-Options: -DOS_Linux
     build-depends: linux-inotify
-    other-modules: System.Directory.Watch.Linux
+    other-modules: System.Directory.Watch.Backend.Inotify
   else
     -- TODO: should match *BSDs as well
     if os(darwin)
-      CPP-Options: -DOS_BSD
+      CPP-Options: -DOS_MacOS
       build-depends: kqueue
                    , hashable
-      other-modules: System.Directory.Watch.BSD
+      other-modules: System.Directory.Watch.Backend.KQueue
 
 
 executable directory-watch-exe

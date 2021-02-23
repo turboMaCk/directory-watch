@@ -2,7 +2,6 @@
 
 module Main where
 
-import Control.Monad (void)
 import Data.Foldable (for_)
 import qualified System.Directory.Watch as Watch
 import System.Environment (getArgs)
@@ -29,5 +28,5 @@ main = do
     watchPath manager path = do
         allDirs <- Recursive.listDirectories path
 
-        for_ allDirs $ \path -> do
-            Watch.watchDirectory manager path
+        for_ allDirs $ \subDir -> do
+            Watch.watchDirectory manager subDir

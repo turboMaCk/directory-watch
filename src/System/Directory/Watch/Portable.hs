@@ -7,11 +7,11 @@ module System.Directory.Watch.Portable (
 data EventType
     = MkDir
     | Touch
-    deriving (Show)
+    deriving (Show, Eq)
 
 
 data Event = Event
     { eventType :: !EventType
     , filePath :: !FilePath
     }
-    deriving (Show)
+    deriving (Show, Eq)

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module System.Directory.Watch (

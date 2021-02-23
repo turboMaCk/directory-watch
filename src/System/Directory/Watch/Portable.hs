@@ -5,8 +5,8 @@ module System.Directory.Watch.Portable (
 
 
 data EventType
-    = MkDir
-    | Touch
+    = DirectoryCreated
+    | FileCreated
     deriving (Show, Eq)
 
 

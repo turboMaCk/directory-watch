@@ -6,13 +6,11 @@ module System.Directory.Watch.Backend (
     init,
     close,
     toEvent,
-    addTouch,
-    addMkDir,
     getEvent,
     isDirectory,
     getId,
     internalWatch,
-    addBoth,
+    watchDirectory,
 ) where
 
 import Prelude hiding (init)

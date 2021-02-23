@@ -33,8 +33,7 @@ runWatch action = do
         liftIO $
             forkIO $
                 Lib.withManager $ \manager -> do
-                    Lib.watchTouch manager $ SH.encodeString workdir
-                    Lib.watchMkDir manager $ SH.encodeString workdir
+                    Lib.watchDirectory manager $ SH.encodeString workdir
 
                     Lib.keepWatching manager $ \event -> do
                         putStrLn $ "Event: " <> show event
@@ -57,11 +56,11 @@ main = hspec $ do
 
             events
                 `shouldBe` [ Lib.Event
-                                { Lib.eventType = Lib.Touch
+                                { Lib.eventType = Lib.FileCreated
                                 , Lib.filePath = "/foo"
                                 }
                            , Lib.Event
-                                { Lib.eventType = Lib.Touch
+                                { Lib.eventType = Lib.FileCreated
                                 , Lib.filePath = "/bar"
                                 }
                            ]

@@ -34,27 +34,28 @@ toEvent path Inotify.Event{..} = Event{..}
   where
     filePath = path <> "/" <> Utf8.toString name
     eventType
-        | Inotify.isSubset Inotify.in_ISDIR mask = MkDir
-        | otherwise = Touch
+        | Inotify.isSubset Inotify.in_ISDIR mask = DirectoryCreated
+        | otherwise = FileCreated
 {-# INLINE toEvent #-}
 
 
-addTouch :: Handle -> FilePath -> IO Id
-addTouch handle path =
+watchModify :: Handle -> FilePath -> IO Id
+watchModify handle path =
     Inotify.addWatch handle path Inotify.in_MODIFY
-{-# INLINE addTouch #-}
+{-# INLINE watchModify #-}
 
 
-addMkDir :: Handle -> FilePath -> IO Id
-addMkDir handle path =
+watchCreate :: Handle -> FilePath -> IO Id
+watchCreate handle path =
     Inotify.addWatch handle path Inotify.in_CREATE
-{-# INLINE addMkDir #-}
+{-# INLINE watchCreate #-}
 
 
-addBoth :: Handle -> FilePath -> IO Id
-addBoth handle path =
-    Inotify.addWatch handle path $ Inotify.in_CREATE `Inotify.isect` Inotify.in_MODIFY
-{-# INLINE addBoth #-}
+watchDirectory :: Handle -> FilePath -> IO Id
+watchDirectory handle path = do
+    -- watchCreate handle path
+    watchModify handle path
+{-# INLINE watchDirectory #-}
 
 
 getEvent :: Handle -> IO BackendEvent

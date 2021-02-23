@@ -49,7 +49,8 @@ runWatch action = do
 main :: IO ()
 main = hspec $ do
     describe "simple non recursive watcher" $ do
-        it "Simple test" $ do
+
+        it "Should trigger FileCreated" $ do
             events <- runWatch $ \wd -> do
                 SH.touch (wd </> "foo")
                 SH.touch (wd </> "bar")
@@ -62,5 +63,16 @@ main = hspec $ do
                            , Lib.Event
                                 { Lib.eventType = Lib.FileCreated
                                 , Lib.filePath = "/bar"
+                                }
+                           ]
+
+        it "Should trigger Directory Created" $ do
+            events <- runWatch $ \wd -> do
+                SH.mkdir (wd </> "new-dir")
+
+            events
+                `shouldBe` [ Lib.Event
+                                { Lib.eventType = Lib.DirectoryCreated
+                                , Lib.filePath = "/new-dir"
                                 }
                            ]

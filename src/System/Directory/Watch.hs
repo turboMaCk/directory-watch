@@ -13,6 +13,7 @@ module System.Directory.Watch (
 import Control.Concurrent (forkIO)
 import Control.Exception (bracket)
 import Control.Monad (forever, when)
+import Data.Foldable (for_)
 import Data.Functor (void)
 import Data.Maybe (fromMaybe)
 
@@ -79,12 +80,12 @@ watching Manager{..} path watch = do
         Stm.modifyTVar' internalRegMap $ Map.insert internalWatch watch
 
 
-
 watchDirectory :: Manager -> FilePath -> IO ()
 watchDirectory Manager{..} path = do
     putStrLn $ "Watching new dir: " <> path
-    watch <- Backend.watchDirectory handle path
-    watching Manager{..} path watch
+    watches <- Backend.watchDirectory handle path
+    for_ watches $
+        watching Manager{..} path
 
 
 getEvent :: Manager -> (Event -> IO ()) -> IO ()

@@ -5,7 +5,6 @@ module Main where
 import Data.Foldable (for_)
 import qualified System.Directory.Watch as Watch
 import System.Environment (getArgs)
-import qualified System.Posix.Files as Posix
 import qualified System.Posix.Recursive as Recursive
 
 

@@ -4,6 +4,7 @@ module System.Directory.Watch.Backend.Inotify where
 
 import qualified Data.ByteString.UTF8 as Utf8
 import qualified Data.HashMap.Strict as Map
+import Data.Traversable (for)
 import qualified System.Linux.Inotify as Inotify
 import Prelude hiding (init)
 
@@ -51,10 +52,10 @@ watchCreate handle path =
 {-# INLINE watchCreate #-}
 
 
-watchDirectory :: Handle -> FilePath -> IO Id
-watchDirectory handle path = do
-    -- watchCreate handle path
-    watchModify handle path
+watchDirectory :: Handle -> FilePath -> IO [Id]
+watchDirectory handle path =
+    for [watchModify, watchCreate] $
+        \f -> f handle path
 {-# INLINE watchDirectory #-}
 
 

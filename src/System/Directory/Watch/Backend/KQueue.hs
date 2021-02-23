@@ -66,14 +66,14 @@ close (_, tEvents) = do
 toEvent :: FilePath -> BackendEvent -> Event
 toEvent path KEvent{..} = Event{..}
   where
-    filePath = path
+    filePath = path <> "/foo"
     -- TODO: Will need detection
-    eventType = Touch
+    eventType = FileCreated
 {-# INLINE toEvent #-}
 
 
-addTouch :: Handle -> FilePath -> IO Id
-addTouch (_, events) path = do
+watchDirectory :: Handle -> FilePath -> IO Id
+watchDirectory (_, events) path = do
     ident <- fromIntegral <$> openFd path ReadOnly Nothing defaultFileFlags
     let event = getEvent ident
     Stm.atomically $ Stm.modifyTVar' events ((:) event)
@@ -89,32 +89,7 @@ addTouch (_, events) path = do
             , data_ = 0
             , udata = nullPtr
             }
-{-# INLINE addTouch #-}
-
-
-addMkDir :: Handle -> FilePath -> IO Id
-addMkDir (_, events) path = do
-    ident <- fromIntegral <$> openFd path ReadOnly Nothing defaultFileFlags
-    let event = getEvent ident
-    Stm.atomically $ Stm.modifyTVar' events ((:) event)
-    pure event
-  where
-    -- TODO: encode event type
-    getEvent ident =
-        KEvent
-            { ident = ident
-            , evfilter = EvfiltVnode
-            , flags = [EvAdd, EvOneshot]
-            , fflags = [NoteWrite]
-            , data_ = 0
-            , udata = nullPtr
-            }
-{-# INLINE addMkDir #-}
-
-
-addBoth :: Handle -> FilePath -> IO Id
-addBoth handle path = undefined
-{-# INLINE addBoth #-}
+{-# INLINE watchDirectory #-}
 
 
 getEvent :: Handle -> IO BackendEvent

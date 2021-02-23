@@ -2,7 +2,6 @@
 
 module Main where
 
-import Control.Monad (void)
 import Data.Foldable (for_)
 import qualified System.Directory.Watch as Watch
 import System.Environment (getArgs)
@@ -20,7 +19,7 @@ main = do
         Watch.keepWatching manager $ \Watch.Event{..} -> do
             putStrLn $ "Event: " <> show Watch.Event{..}
             case eventType of
-                Watch.MkDir ->
+                Watch.DirectoryCreated ->
                     watchPath manager filePath
 
                 _ ->
@@ -29,6 +28,5 @@ main = do
     watchPath manager path = do
         allDirs <- Recursive.listDirectories path
 
-        for_ allDirs $ \path -> do
-            Watch.watchTouch manager path
-            Watch.watchMkDir manager path
+        for_ allDirs $ \subDir -> do
+            Watch.watchDirectory manager subDir

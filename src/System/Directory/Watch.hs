@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module System.Directory.Watch (
@@ -6,9 +5,7 @@ module System.Directory.Watch (
     EventType (..),
     Manager,
     withManager,
-    watchTouch,
-    watchMkDir,
-    watchBoth,
+    watchDirectory,
     getEvent,
     keepWatching,
 ) where
@@ -82,26 +79,11 @@ watching Manager{..} path watch = do
         Stm.modifyTVar' internalRegMap $ Map.insert internalWatch watch
 
 
-watchTouch :: Manager -> FilePath -> IO ()
-watchTouch Manager{..} path = do
-    -- TODO: check if directory
-    putStrLn $ "watchTouch: " <> path
-    watch <- Backend.addTouch handle path
-    watching Manager{..} path watch
 
-
-watchMkDir :: Manager -> FilePath -> IO ()
-watchMkDir Manager{..} path = do
-    -- TODO: check if directory
-    putStrLn $ "watchMkdir: " <> path
-    watch <- Backend.addMkDir handle path
-    watching Manager{..} path watch
-
-
-watchBoth :: Manager -> FilePath -> IO ()
-watchBoth Manager{..} path = do
-    putStrLn $ "watchBoth: " <> path
-    watch <- Backend.addBoth handle path
+watchDirectory :: Manager -> FilePath -> IO ()
+watchDirectory Manager{..} path = do
+    putStrLn $ "Watching new dir: " <> path
+    watch <- Backend.watchDirectory handle path
     watching Manager{..} path watch
 
 

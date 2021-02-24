@@ -46,15 +46,13 @@ toEvent path Inotify.Event{..} = (\eventType -> Event{..}) <$> mEventType
 
 watchDirectory :: Handle -> FilePath -> IO [Id]
 watchDirectory handle path =
-    sequence
-        [Inotify.addWatch handle path $ Inotify.in_CREATE]
+    pure <$> Inotify.addWatch handle path Inotify.in_CREATE
 {-# INLINE watchDirectory #-}
 
 
 watchFile :: Handle -> FilePath -> IO [Id]
 watchFile handle path =
-    sequence
-        [Inotify.addWatch handle path $ Inotify.in_CLOSE_WRITE]
+    pure <$> Inotify.addWatch handle path Inotify.in_CLOSE_WRITE
 {-# INLINE watchFile #-}
 
 

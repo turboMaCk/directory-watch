@@ -15,7 +15,6 @@ module System.Directory.Watch (
 import Control.Concurrent (forkIO)
 import Control.Exception (bracket)
 import Control.Monad (forever, when)
-import Data.Foldable (for_)
 import Data.Functor (void)
 import Data.Maybe (fromMaybe)
 
@@ -105,17 +104,13 @@ watching Manager{..} fileType path watch = do
 watchDirectory :: Manager -> FilePath -> IO ()
 watchDirectory Manager{..} path = do
     putStrLn $ "Watching new dir: " <> path
-    watches <- Backend.watchDirectory handle path
-    for_ watches $
-        watching Manager{..} Directory path
+    Backend.watchDirectory handle path >>= watching Manager{..} Directory path
 
 
 watchFile :: Manager -> FilePath -> IO ()
 watchFile Manager{..} path = do
     putStrLn $ "Watching new file: " <> path
-    watches <- Backend.watchFile handle path
-    for_ watches $
-        watching Manager{..} File path
+    Backend.watchFile handle path >>= watching Manager{..} File path
 
 
 getEvent :: Manager -> (Event -> IO ()) -> IO ()

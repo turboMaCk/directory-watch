@@ -17,7 +17,6 @@ import qualified Turtle as SH
 import qualified Turtle.Prelude as SH
 
 import qualified System.Directory.Watch as Lib
-import qualified System.Posix.Recursive as Recursive
 
 
 type Events = [Lib.Event]

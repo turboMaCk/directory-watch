@@ -11,6 +11,7 @@ module System.Directory.Watch.Backend (
     getId,
     internalWatch,
     watchDirectory,
+    watchFile,
 ) where
 
 import Prelude hiding (init)

@@ -7,6 +7,7 @@ module System.Directory.Watch.Portable (
 data EventType
     = DirectoryCreated
     | FileCreated
+    | FileModified
     deriving (Show, Eq)
 
 

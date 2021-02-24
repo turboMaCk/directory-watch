@@ -6,6 +6,7 @@ module System.Directory.Watch (
     Manager,
     withManager,
     watchDirectory,
+    watchFile,
     getEvent,
     keepWatching,
 ) where
@@ -88,15 +89,24 @@ watchDirectory Manager{..} path = do
         watching Manager{..} path
 
 
+watchFile :: Manager -> FilePath -> IO ()
+watchFile Manager{..} path = do
+    putStrLn $ "Watching new file: " <> path
+    watches <- Backend.watchFile handle path
+    for_ watches $
+        watching Manager{..} path
+
+
 getEvent :: Manager -> (Event -> IO ()) -> IO ()
 getEvent Manager{..} f = do
     iEvent <- Backend.getEvent handle
-    putStrLn $ "Backend event: " <> show iEvent
     snapshot <- Stm.readTVarIO registery
 
     let mPath = Map.lookup (Backend.getId iEvent) snapshot
     case mPath of
-        Just path -> f $ Backend.toEvent path iEvent
+        Just path -> case Backend.toEvent path iEvent of
+                       Nothing -> putStrLn $ "[Warning] Unknown event" <> show iEvent
+                       Just e -> f e
         Nothing -> putStrLn $ "[ERROR] can't find path for " <> show iEvent
 
 

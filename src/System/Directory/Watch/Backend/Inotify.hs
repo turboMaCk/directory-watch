@@ -4,7 +4,6 @@ module System.Directory.Watch.Backend.Inotify where
 
 import qualified Data.ByteString.UTF8 as Utf8
 import qualified Data.HashMap.Strict as Map
-import Data.Traversable (for)
 import qualified System.Linux.Inotify as Inotify
 import Prelude hiding (init)
 
@@ -30,33 +29,33 @@ close = Inotify.close
 {-# INLINE close #-}
 
 
-toEvent :: FilePath -> BackendEvent -> Event
-toEvent path Inotify.Event{..} = Event{..}
+toEvent :: FilePath -> BackendEvent -> Maybe Event
+toEvent path Inotify.Event{..} = (\eventType -> Event{..}) <$> mEventType
   where
-    filePath = path <> "/" <> Utf8.toString name
-    eventType
-        | Inotify.isSubset Inotify.in_ISDIR mask = DirectoryCreated
-        | otherwise = FileCreated
+    decodedName = Utf8.toString name
+    filePath
+        | null decodedName = path
+        | otherwise = path <> "/" <> decodedName
+    mEventType
+        | Inotify.isSubset Inotify.in_ISDIR mask = Just DirectoryCreated
+        | Inotify.isSubset Inotify.in_CLOSE_WRITE mask = Just FileModified
+        | Inotify.isSubset Inotify.in_CREATE mask = Just FileCreated
+        | otherwise = Nothing
 {-# INLINE toEvent #-}
-
-
-watchModify :: Handle -> FilePath -> IO Id
-watchModify handle path =
-    Inotify.addWatch handle path Inotify.in_MODIFY
-{-# INLINE watchModify #-}
-
-
-watchCreate :: Handle -> FilePath -> IO Id
-watchCreate handle path =
-    Inotify.addWatch handle path Inotify.in_CREATE
-{-# INLINE watchCreate #-}
 
 
 watchDirectory :: Handle -> FilePath -> IO [Id]
 watchDirectory handle path =
-    for [watchModify, watchCreate] $
-        \f -> f handle path
+    sequence
+        [Inotify.addWatch handle path $ Inotify.in_CREATE]
 {-# INLINE watchDirectory #-}
+
+
+watchFile :: Handle -> FilePath -> IO [Id]
+watchFile handle path =
+    sequence
+        [Inotify.addWatch handle path $ Inotify.in_CLOSE_WRITE]
+{-# INLINE watchFile #-}
 
 
 getEvent :: Handle -> IO BackendEvent

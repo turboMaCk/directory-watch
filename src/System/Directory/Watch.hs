@@ -5,9 +5,12 @@ module System.Directory.Watch (
     EventType (..),
     Manager,
     withManager,
+    watch,
     watchDirectory,
+    watchFile,
     getEvent,
     keepWatching,
+    poolSize,
 ) where
 
 import Control.Concurrent (forkIO)
@@ -15,6 +18,7 @@ import Control.Exception (bracket)
 import Control.Monad (forever, when)
 import Data.Functor (void)
 import Data.Maybe (fromMaybe)
+import qualified System.Posix.Files as Posix
 
 import qualified Control.Concurrent.STM as Stm
 import qualified Data.HashMap.Strict as Map
@@ -23,7 +27,7 @@ import qualified System.Directory.Watch.Backend as Backend
 import System.Directory.Watch.Portable
 
 
-type Registery = Map.HashMap Backend.Id FilePath
+type Registery = Map.HashMap Backend.Id (FileType, FilePath)
 
 
 {- | In theory these 2 should aline in a way that
@@ -42,6 +46,22 @@ data Manager = Manager
     }
 
 
+data EventType
+    = DirectoryCreated
+    | FileCreated
+    | FileModified
+    | FileRemoved
+    | DirectoryRemoved
+    deriving (Show, Eq)
+
+
+data Event = Event
+    { eventType :: !EventType
+    , filePath :: !FilePath
+    }
+    deriving (Show, Eq)
+
+
 withManager :: (Manager -> IO a) -> IO a
 withManager action =
     bracket Backend.init Backend.close $ \handle ->
@@ -53,54 +73,82 @@ withManager action =
             forkIO $
                 forever $ do
                     backendEvent <- Backend.getEvent internalHandle
-                    putStrLn $ "[INTERNAL] INotify event: " <> show backendEvent
+                    putStrLn $ "[Internal] INotify event: " <> show backendEvent
 
-                    when (Backend.isDirectory backendEvent) $
-                        Stm.atomically $ do
-                            mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
+                    Stm.atomically $ do
+                        mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
 
-                            -- Remove from registery
-                            whenJust mWatch $
-                                Stm.modifyTVar' registery . Map.delete
+                        -- Remove from registery
+                        whenJust mWatch $
+                            Stm.modifyTVar' registery . Map.delete
 
-                            -- Remove from internal map
-                            Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
+                        -- Remove from internal map
+                        Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
+
+                    regSize <- Map.size <$> Stm.readTVarIO registery
+                    intRegSize <- Map.size <$> Stm.readTVarIO internalRegMap
+                    putStrLn $ "[Info] Size of registery: " <> show regSize
+                    putStrLn $ "[Info] Size of intRegMap: " <> show intRegSize
 
             action $ Manager{..}
 
 
-watching :: Manager -> FilePath -> Backend.Id -> IO ()
-watching Manager{..} path watch = do
+watching :: Manager -> FileType -> FilePath -> Backend.Id -> IO ()
+watching Manager{..} fileType path watch = do
     internalWatch <- Backend.internalWatch internalHandle path
     Stm.atomically $ do
         -- Add to registery
-        Stm.modifyTVar' registery $ Map.insert watch path
+        Stm.modifyTVar' registery $ Map.insert watch (fileType, path)
         -- Add to internal reg map
         Stm.modifyTVar' internalRegMap $ Map.insert internalWatch watch
 
 
-
 watchDirectory :: Manager -> FilePath -> IO ()
 watchDirectory Manager{..} path = do
-    putStrLn $ "Watching new dir: " <> path
-    watch <- Backend.watchDirectory handle path
-    watching Manager{..} path watch
+    Backend.watchDirectory handle path >>= watching Manager{..} Directory path
+
+
+watchFile :: Manager -> FilePath -> IO ()
+watchFile Manager{..} path = do
+    Backend.watchFile handle path >>= watching Manager{..} File path
+
+
+watch :: Manager -> FilePath -> IO ()
+watch manager path = do
+    isDir <- Posix.isDirectory <$> Posix.getFileStatus path
+    if isDir
+        then watchDirectory manager path
+        else watchFile manager path
 
 
 getEvent :: Manager -> (Event -> IO ()) -> IO ()
 getEvent Manager{..} f = do
     iEvent <- Backend.getEvent handle
-    putStrLn $ "Backend event: " <> show iEvent
     snapshot <- Stm.readTVarIO registery
 
     let mPath = Map.lookup (Backend.getId iEvent) snapshot
     case mPath of
-        Just path -> f $ Backend.toEvent path iEvent
+        Just (ft, path) -> case Backend.toEvent path iEvent of
+            Nothing -> putStrLn $ "[Warning] Unknown event" <> show iEvent
+            Just Action{..} ->
+                let act eventType = f $ Event{..}
+                 in case actionType of
+                        (Created File) -> act FileCreated
+                        (Created Directory) -> act DirectoryCreated
+                        Modified -> act FileModified
+                        Removed -> case ft of
+                            File -> act FileRemoved
+                            Directory -> act DirectoryRemoved
         Nothing -> putStrLn $ "[ERROR] can't find path for " <> show iEvent
 
 
 keepWatching :: Manager -> (Event -> IO ()) -> IO ()
 keepWatching manager = forever . getEvent manager
+
+
+poolSize :: Manager -> IO Int
+poolSize Manager{..} =
+    Map.size <$> Stm.readTVarIO registery
 
 
 -- Helpers that should really be in the base but aren't

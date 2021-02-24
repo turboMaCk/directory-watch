@@ -29,33 +29,32 @@ close = Inotify.close
 {-# INLINE close #-}
 
 
-toEvent :: FilePath -> BackendEvent -> Event
-toEvent path Inotify.Event{..} = Event{..}
+toEvent :: FilePath -> BackendEvent -> Maybe Action
+toEvent path Inotify.Event{..} = (\actionType -> Action{..}) <$> mActionType
   where
-    filePath = path <> "/" <> Utf8.toString name
-    eventType
-        | Inotify.isSubset Inotify.in_ISDIR mask = DirectoryCreated
-        | otherwise = FileCreated
+    decodedName = Utf8.toString name
+    filePath
+        | null decodedName = path
+        | otherwise = path <> "/" <> decodedName
+    mActionType
+        | Inotify.isSubset Inotify.in_IGNORED mask = Just Removed
+        | Inotify.isSubset Inotify.in_ISDIR mask = Just $ Created Directory
+        | Inotify.isSubset Inotify.in_CLOSE_WRITE mask = Just Modified
+        | Inotify.isSubset Inotify.in_CREATE mask = Just $ Created File
+        | otherwise = Nothing
 {-# INLINE toEvent #-}
 
 
-watchModify :: Handle -> FilePath -> IO Id
-watchModify handle path =
-    Inotify.addWatch handle path Inotify.in_MODIFY
-{-# INLINE watchModify #-}
-
-
-watchCreate :: Handle -> FilePath -> IO Id
-watchCreate handle path =
-    Inotify.addWatch handle path Inotify.in_CREATE
-{-# INLINE watchCreate #-}
-
-
 watchDirectory :: Handle -> FilePath -> IO Id
-watchDirectory handle path = do
-    -- watchCreate handle path
-    watchModify handle path
+watchDirectory handle path =
+    Inotify.addWatch handle path Inotify.in_CREATE
 {-# INLINE watchDirectory #-}
+
+
+watchFile :: Handle -> FilePath -> IO Id
+watchFile handle path =
+    Inotify.addWatch handle path Inotify.in_CLOSE_WRITE
+{-# INLINE watchFile #-}
 
 
 getEvent :: Handle -> IO BackendEvent

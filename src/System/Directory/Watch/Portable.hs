@@ -1,17 +1,25 @@
 module System.Directory.Watch.Portable (
-    EventType (..),
-    Event (..),
+    ActionType (..),
+    Action (..),
+    FileType (..),
 ) where
 
 
-data EventType
-    = DirectoryCreated
-    | FileCreated
+data FileType
+    = File
+    | Directory
     deriving (Show, Eq)
 
 
-data Event = Event
-    { eventType :: !EventType
+data ActionType
+    = Created FileType
+    | Modified
+    | Removed
+    deriving (Show, Eq)
+
+
+data Action = Action
+    { actionType :: !ActionType
     , filePath :: !FilePath
     }
     deriving (Show, Eq)

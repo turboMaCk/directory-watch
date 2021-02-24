@@ -21,12 +21,17 @@ main = do
             case eventType of
                 Watch.DirectoryCreated ->
                     watchPath manager filePath
-
+                Watch.FileCreated ->
+                    watchPath manager filePath
                 _ ->
                     pure ()
   where
     watchPath manager path = do
-        allDirs <- Recursive.listDirectories path
-
-        for_ allDirs $ \subDir -> do
-            Watch.watchDirectory manager subDir
+        paths <-
+            Recursive.listCustom
+                Recursive.defConf
+                    { Recursive.includeFile =
+                        \stat _ -> pure (Posix.isRegularFile stat || Posix.isDirectory stat)
+                    }
+                path
+        for_ paths $ Watch.watch manager

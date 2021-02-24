@@ -9,6 +9,7 @@ module System.Directory.Watch (
     watchFile,
     getEvent,
     keepWatching,
+    poolSize,
 ) where
 
 import Control.Concurrent (forkIO)
@@ -71,19 +72,22 @@ withManager action =
             forkIO $
                 forever $ do
                     backendEvent <- Backend.getEvent internalHandle
-                    putStrLn $ "[INTERNAL] INotify event: " <> show backendEvent
+                    putStrLn $ "[Internal] INotify event: " <> show backendEvent
 
-                    -- TODO: review if we should not be removing files as well now
-                    when (Backend.isDirectory backendEvent) $
-                        Stm.atomically $ do
-                            mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
+                    Stm.atomically $ do
+                        mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
 
-                            -- Remove from registery
-                            whenJust mWatch $
-                                Stm.modifyTVar' registery . Map.delete
+                        -- Remove from registery
+                        whenJust mWatch $
+                            Stm.modifyTVar' registery . Map.delete
 
-                            -- Remove from internal map
-                            Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
+                        -- Remove from internal map
+                        Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
+
+                    regSize <- Map.size <$> Stm.readTVarIO registery
+                    intRegSize <- Map.size <$> Stm.readTVarIO internalRegMap
+                    putStrLn $ "[Info] Size of registery: " <> show regSize
+                    putStrLn $ "[Info] Size of intRegMap: " <> show intRegSize
 
             action $ Manager{..}
 
@@ -137,6 +141,11 @@ getEvent Manager{..} f = do
 
 keepWatching :: Manager -> (Event -> IO ()) -> IO ()
 keepWatching manager = forever . getEvent manager
+
+
+poolSize :: Manager -> IO Int
+poolSize Manager{..} =
+    Map.size <$> Stm.readTVarIO registery
 
 
 -- Helpers that should really be in the base but aren't

@@ -47,7 +47,7 @@ runWatch action = do
                         modifyIORef' events $ (:) (sanitize Lib.Event{..})
 
                         case eventType of
-                            Lib.DirectoryCreated -> pure () --Lib.watchDirectory manager filePath
+                            Lib.DirectoryCreated -> Lib.watchDirectory manager filePath
                             Lib.FileCreated -> Lib.watchFile manager filePath
                             Lib.FileModified -> pure ()
 
@@ -63,8 +63,8 @@ main = hspec $ do
     describe "Watcher observing turtle events" $ do
         it "Should trigger FileCreated" $ do
             events <- runWatch $ \wd -> do
-                SH.touch (wd </> "foo")
-                SH.touch (wd </> "bar")
+                SH.touch $ wd </> "foo"
+                SH.touch $ wd </> "bar"
 
             events
                 `shouldBe` [ Lib.Event
@@ -79,7 +79,7 @@ main = hspec $ do
 
         it "Should trigger Directory Created" $ do
             events <- runWatch $ \wd -> do
-                SH.mkdir (wd </> "new-dir")
+                SH.mkdir $ wd </> "new-dir"
 
             events
                 `shouldBe` [ Lib.Event
@@ -102,5 +102,28 @@ main = hspec $ do
                            , Lib.Event
                                 { Lib.eventType = Lib.FileModified
                                 , Lib.filePath = "/baz"
+                                }
+                           ]
+
+        it "should be able to recursively start watching new directories" $ do
+            events <- runWatch $ \wd -> do
+                SH.mkdir $ wd </> "sub-dir"
+                sleep
+                SH.touch $ wd </> "sub-dir" </> "foobar"
+                sleep
+                liftIO $ SH.writeTextFile (wd </> "sub-dir" </> "foobar") "Hello there!"
+
+            events
+                `shouldBe` [ Lib.Event
+                                { Lib.eventType = Lib.DirectoryCreated
+                                , Lib.filePath = "/sub-dir"
+                                }
+                           , Lib.Event
+                                { Lib.eventType = Lib.FileCreated
+                                , Lib.filePath = "/sub-dir/foobar"
+                                }
+                           , Lib.Event
+                                { Lib.eventType = Lib.FileModified
+                                , Lib.filePath = "/sub-dir/foobar"
                                 }
                            ]

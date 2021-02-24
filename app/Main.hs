@@ -21,6 +21,8 @@ main = do
                 Watch.DirectoryCreated ->
                     watchPath manager filePath
 
+                Watch.FileCreated ->
+                    Watch.watchFile manager filePath
                 _ ->
                     pure ()
   where

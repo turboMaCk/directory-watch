@@ -29,17 +29,18 @@ close = Inotify.close
 {-# INLINE close #-}
 
 
-toEvent :: FilePath -> BackendEvent -> Maybe Event
-toEvent path Inotify.Event{..} = (\eventType -> Event{..}) <$> mEventType
+toEvent :: FilePath -> BackendEvent -> Maybe Action
+toEvent path Inotify.Event{..} = (\actionType -> Action{..}) <$> mActionType
   where
     decodedName = Utf8.toString name
     filePath
         | null decodedName = path
         | otherwise = path <> "/" <> decodedName
-    mEventType
-        | Inotify.isSubset Inotify.in_ISDIR mask = Just DirectoryCreated
-        | Inotify.isSubset Inotify.in_CLOSE_WRITE mask = Just FileModified
-        | Inotify.isSubset Inotify.in_CREATE mask = Just FileCreated
+    mActionType
+        | Inotify.isSubset Inotify.in_IGNORED mask = Just Removed
+        | Inotify.isSubset Inotify.in_ISDIR mask = Just $ Created Directory
+        | Inotify.isSubset Inotify.in_CLOSE_WRITE mask = Just Modified
+        | Inotify.isSubset Inotify.in_CREATE mask = Just $ Created File
         | otherwise = Nothing
 {-# INLINE toEvent #-}
 

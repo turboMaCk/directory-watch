@@ -5,6 +5,7 @@ module Main where
 import Data.Foldable (for_)
 import qualified System.Directory.Watch as Watch
 import System.Environment (getArgs)
+import qualified System.Posix.Files as Posix
 import qualified System.Posix.Recursive as Recursive
 
 
@@ -20,14 +21,17 @@ main = do
             case eventType of
                 Watch.DirectoryCreated ->
                     watchPath manager filePath
-
                 Watch.FileCreated ->
-                    Watch.watchFile manager filePath
+                    watchPath manager filePath
                 _ ->
                     pure ()
   where
     watchPath manager path = do
-        allDirs <- Recursive.listDirectories path
-
-        for_ allDirs $ \subDir -> do
-            Watch.watchDirectory manager subDir
+        paths <-
+            Recursive.listCustom
+                Recursive.defConf
+                    { Recursive.includeFile =
+                        \stat _ -> pure (Posix.isRegularFile stat || Posix.isDirectory stat)
+                    }
+                path
+        for_ paths $ Watch.watch manager

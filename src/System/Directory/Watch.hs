@@ -5,6 +5,7 @@ module System.Directory.Watch (
     EventType (..),
     Manager,
     withManager,
+    watch,
     watchDirectory,
     watchFile,
     getEvent,
@@ -17,6 +18,7 @@ import Control.Exception (bracket)
 import Control.Monad (forever, when)
 import Data.Functor (void)
 import Data.Maybe (fromMaybe)
+import qualified System.Posix.Files as Posix
 
 import qualified Control.Concurrent.STM as Stm
 import qualified Data.HashMap.Strict as Map
@@ -103,14 +105,20 @@ watching Manager{..} fileType path watch = do
 
 watchDirectory :: Manager -> FilePath -> IO ()
 watchDirectory Manager{..} path = do
-    putStrLn $ "Watching new dir: " <> path
     Backend.watchDirectory handle path >>= watching Manager{..} Directory path
 
 
 watchFile :: Manager -> FilePath -> IO ()
 watchFile Manager{..} path = do
-    putStrLn $ "Watching new file: " <> path
     Backend.watchFile handle path >>= watching Manager{..} File path
+
+
+watch :: Manager -> FilePath -> IO ()
+watch manager path = do
+    isDir <- Posix.isDirectory <$> Posix.getFileStatus path
+    if isDir
+        then watchDirectory manager path
+        else watchFile manager path
 
 
 getEvent :: Manager -> (Event -> IO ()) -> IO ()

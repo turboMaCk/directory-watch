@@ -71,27 +71,27 @@ main = hspec $ do
                 ]
 
             events
-                `shouldBe` [ Lib.Event
-                                { Lib.eventType = Lib.FileCreated
-                                , Lib.filePath = "/foo"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileCreated
-                                , Lib.filePath = "/bar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileRemoved
-                                , Lib.filePath = "/foo"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileRemoved
-                                , Lib.filePath = "/bar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = ""
-                                }
-                           ]
+                `shouldMatchList` [ Lib.Event
+                                        { Lib.eventType = Lib.FileCreated
+                                        , Lib.filePath = "/foo"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileCreated
+                                        , Lib.filePath = "/bar"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileRemoved
+                                        , Lib.filePath = "/foo"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileRemoved
+                                        , Lib.filePath = "/bar"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.DirectoryRemoved
+                                        , Lib.filePath = ""
+                                        }
+                                  ]
 
         it "Should trigger Directory Created" $ do
             events <- runWatch $ \wd ->
@@ -119,23 +119,23 @@ main = hspec $ do
                 ]
 
             events
-                `shouldBe` [ Lib.Event
-                                { Lib.eventType = Lib.FileCreated
-                                , Lib.filePath = "/baz"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileModified
-                                , Lib.filePath = "/baz"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileRemoved
-                                , Lib.filePath = "/baz"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = ""
-                                }
-                           ]
+                `shouldMatchList` [ Lib.Event
+                                        { Lib.eventType = Lib.FileCreated
+                                        , Lib.filePath = "/baz"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileModified
+                                        , Lib.filePath = "/baz"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileRemoved
+                                        , Lib.filePath = "/baz"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.DirectoryRemoved
+                                        , Lib.filePath = ""
+                                        }
+                                  ]
 
         it "should be able to recursively start watching new directories" $ do
             events <- runWatch $ \wd ->
@@ -145,28 +145,28 @@ main = hspec $ do
                 ]
 
             events
-                `shouldBe` [ Lib.Event
-                                { Lib.eventType = Lib.DirectoryCreated
-                                , Lib.filePath = "/sub-dir"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileCreated
-                                , Lib.filePath = "/sub-dir/foobar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileModified
-                                , Lib.filePath = "/sub-dir/foobar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileRemoved
-                                , Lib.filePath = "/sub-dir/foobar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = "/sub-dir"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = ""
-                                }
-                           ]
+                `shouldMatchList` [ Lib.Event
+                                        { Lib.eventType = Lib.DirectoryCreated
+                                        , Lib.filePath = "/sub-dir"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileCreated
+                                        , Lib.filePath = "/sub-dir/foobar"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileModified
+                                        , Lib.filePath = "/sub-dir/foobar"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileRemoved
+                                        , Lib.filePath = "/sub-dir/foobar"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.DirectoryRemoved
+                                        , Lib.filePath = "/sub-dir"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.DirectoryRemoved
+                                        , Lib.filePath = ""
+                                        }
+                                  ]

@@ -4,10 +4,16 @@
 
 module Main where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO, newEmptyMVar, putMVar, takeMVar, threadDelay)
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
-import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
+import Data.IORef (
+    IORef,
+    modifyIORef',
+    newIORef,
+    readIORef,
+ )
 import System.IO as IO
 
 import Test.Hspec
@@ -26,6 +32,12 @@ sleep :: MonadIO m => m ()
 sleep = liftIO $ threadDelay 100_000
 
 
+sanitize :: SH.FilePath -> Lib.Event -> Lib.Event
+sanitize workdir event =
+    let newPath = drop (length $ SH.encodeString workdir) $ Lib.filePath event
+     in event{Lib.filePath = newPath}
+
+
 runWatch :: (SH.FilePath -> [SH.Shell ()]) -> IO Events
 runWatch action = do
     events <- newIORef []
@@ -33,10 +45,7 @@ runWatch action = do
     SH.sh $ do
         workdir <- SH.mktempdir (SH.decodeString "test/workdir") "test"
 
-        liftIO $ print workdir
-        let sanitize event =
-                let newPath = drop (length $ SH.encodeString workdir) $ Lib.filePath event
-                 in event{Lib.filePath = newPath}
+        liftIO $ putStrLn $ "Running test in dir " <> show workdir
 
         liftIO $
             forkIO $
@@ -44,100 +53,134 @@ runWatch action = do
                     Lib.watchDirectory manager $ SH.encodeString workdir
 
                     Lib.keepWatching manager $ \Lib.Event{..} -> do
-                        modifyIORef' events $ (:) (sanitize Lib.Event{..})
+                        modifyIORef' events $ (:) (sanitize workdir Lib.Event{..})
 
                         case eventType of
                             Lib.DirectoryCreated -> Lib.watchDirectory manager filePath
                             Lib.FileCreated -> Lib.watchFile manager filePath
                             _ -> pure ()
-
         for_ (action workdir) $ \sh -> do
             sleep
             sh
 
         sleep
 
-    sleep
+    -- longer sleep where we wait for extra events
+    liftIO $ threadDelay 300_000
     reverse <$> readIORef events
+
+
+shouldTrigger :: [Lib.Event] -> (SH.FilePath -> [SH.Shell ()]) -> Expectation
+shouldTrigger expected action = do
+    events <- newIORef []
+
+    SH.sh $ do
+        workdir <- SH.mktempdir (SH.decodeString "test/workdir") "test"
+
+        liftIO $ putStrLn $ "Running test in dir " <> show workdir
+
+        -- we will block on this
+        done <- liftIO $ newEmptyMVar
+
+        -- timeout
+        liftIO $
+            forkIO $ do
+                threadDelay 1_000_000
+                putMVar done ()
+
+        liftIO $
+            forkIO $
+                Lib.withManager $ \manager -> do
+                    Lib.watchDirectory manager $ SH.encodeString workdir
+
+                    Lib.keepWatching manager $ \Lib.Event{..} -> do
+                        modifyIORef' events $ (:) (sanitize workdir Lib.Event{..})
+
+                        case eventType of
+                            Lib.DirectoryCreated -> Lib.watchDirectory manager filePath
+                            Lib.FileCreated -> Lib.watchFile manager filePath
+                            _ -> pure ()
+
+                        currentEvents <- readIORef events
+                        when (length currentEvents >= length expected) $ do
+                            putMVar done ()
+                            -- block thread until it gets killed
+                            threadDelay 1_000_000
+
+        for_ (action workdir) $ \sh -> sleep *> sh
+
+        liftIO $ takeMVar done
+
+    result <- readIORef events
+    result `shouldMatchList` expected
 
 
 main :: IO ()
 main = hspec $ do
     describe "Watcher observing turtle events" $ do
-        it "Should trigger FileCreated" $ do
-            events <- runWatch $ \wd ->
-                [ SH.touch $ wd </> "foo"
-                , SH.touch $ wd </> "bar"
+        it "Should trigger FileCreated" $
+            shouldTrigger
+                [ Lib.Event
+                    { Lib.eventType = Lib.FileCreated
+                    , Lib.filePath = "/foo"
+                    }
+                , Lib.Event
+                    { Lib.eventType = Lib.FileCreated
+                    , Lib.filePath = "/bar"
+                    }
                 ]
-
-            events
-                `shouldBe` [ Lib.Event
-                                { Lib.eventType = Lib.FileCreated
-                                , Lib.filePath = "/foo"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileCreated
-                                , Lib.filePath = "/bar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileRemoved
-                                , Lib.filePath = "/foo"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileRemoved
-                                , Lib.filePath = "/bar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = ""
-                                }
-                           ]
+                $ \wd ->
+                    [ SH.touch $ wd </> "foo"
+                    , SH.touch $ wd </> "bar"
+                    ]
 
         it "Should trigger Directory Created" $ do
-            events <- runWatch $ \wd ->
-                [SH.mkdir $ wd </> "new-dir"]
-
-            events
-                `shouldBe` [ Lib.Event
-                                { Lib.eventType = Lib.DirectoryCreated
-                                , Lib.filePath = "/new-dir"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = "/new-dir"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = ""
-                                }
-                           ]
+            shouldTrigger
+                [ Lib.Event
+                    { Lib.eventType = Lib.DirectoryCreated
+                    , Lib.filePath = "/new-dir"
+                    }
+                ]
+                $ \wd ->
+                    [SH.mkdir $ wd </> "new-dir"]
 
         it "Should handle writing to file" $ do
-            events <- runWatch $ \wd ->
-                [ SH.touch $ wd </> "baz"
-                , liftIO $ SH.writeTextFile (wd </> "baz") "Hello there!"
+            shouldTrigger
+                [ Lib.Event
+                    { Lib.eventType = Lib.FileCreated
+                    , Lib.filePath = "/baz"
+                    }
+                , Lib.Event
+                    { Lib.eventType = Lib.FileModified
+                    , Lib.filePath = "/baz"
+                    }
                 ]
-
-            events
-                `shouldBe` [ Lib.Event
-                                { Lib.eventType = Lib.FileCreated
-                                , Lib.filePath = "/baz"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileModified
-                                , Lib.filePath = "/baz"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileRemoved
-                                , Lib.filePath = "/baz"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = ""
-                                }
-                           ]
+                $ \wd ->
+                    [ SH.touch $ wd </> "baz"
+                    , liftIO $ SH.writeTextFile (wd </> "baz") "Hello there!"
+                    ]
 
         it "should be able to recursively start watching new directories" $ do
+            shouldTrigger
+                [ Lib.Event
+                    { Lib.eventType = Lib.DirectoryCreated
+                    , Lib.filePath = "/sub-dir"
+                    }
+                , Lib.Event
+                    { Lib.eventType = Lib.FileCreated
+                    , Lib.filePath = "/sub-dir/foobar"
+                    }
+                , Lib.Event
+                    { Lib.eventType = Lib.FileModified
+                    , Lib.filePath = "/sub-dir/foobar"
+                    }
+                ]
+                $ \wd ->
+                    [ SH.mkdir $ wd </> "sub-dir"
+                    , SH.touch $ wd </> "sub-dir" </> "foobar"
+                    , liftIO $ SH.writeTextFile (wd </> "sub-dir" </> "foobar") "Hello there!"
+                    ]
+        it "Should not report more events than there should be" $ do
             events <- runWatch $ \wd ->
                 [ SH.mkdir $ wd </> "sub-dir"
                 , SH.touch $ wd </> "sub-dir" </> "foobar"
@@ -145,28 +188,28 @@ main = hspec $ do
                 ]
 
             events
-                `shouldBe` [ Lib.Event
-                                { Lib.eventType = Lib.DirectoryCreated
-                                , Lib.filePath = "/sub-dir"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileCreated
-                                , Lib.filePath = "/sub-dir/foobar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileModified
-                                , Lib.filePath = "/sub-dir/foobar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.FileRemoved
-                                , Lib.filePath = "/sub-dir/foobar"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = "/sub-dir"
-                                }
-                           , Lib.Event
-                                { Lib.eventType = Lib.DirectoryRemoved
-                                , Lib.filePath = ""
-                                }
-                           ]
+                `shouldMatchList` [ Lib.Event
+                                        { Lib.eventType = Lib.DirectoryCreated
+                                        , Lib.filePath = "/sub-dir"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileCreated
+                                        , Lib.filePath = "/sub-dir/foobar"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileModified
+                                        , Lib.filePath = "/sub-dir/foobar"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.FileRemoved
+                                        , Lib.filePath = "/sub-dir/foobar"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.DirectoryRemoved
+                                        , Lib.filePath = "/sub-dir"
+                                        }
+                                  , Lib.Event
+                                        { Lib.eventType = Lib.DirectoryRemoved
+                                        , Lib.filePath = ""
+                                        }
+                                  ]

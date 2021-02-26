@@ -2,3 +2,4 @@
 *~
 /dist-newstyle/
 /test/workdir/**/*
+!/test/workdir/.gitkeep

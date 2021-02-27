@@ -71,11 +71,11 @@ executable directory-watch-exe
 test-suite directory-watch-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
-  other-modules:
-      Paths_directory_watch
+  other-modules: Paths_directory_watch
+               , Spec.Helper
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:
       base >=4.7 && <5
     , directory-watch

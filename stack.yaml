@@ -73,4 +73,6 @@ extra-deps:
 # compiler-check: newer-minor
 nix:
   enable: true
-  packages: [ zlib ]
+  packages: [ zlib
+            , gmp
+            ]

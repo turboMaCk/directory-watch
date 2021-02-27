@@ -103,7 +103,6 @@ withManager action =
 
                             -- Remove from internal map
                             Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
-
 #ifdef Log
                         regSize <- Map.size <$> Stm.readTVarIO registery
                         intRegSize <- Map.size <$> Stm.readTVarIO internalRegMap

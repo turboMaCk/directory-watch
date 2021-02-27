@@ -4,7 +4,7 @@
 
 module Main where
 
-import Control.Concurrent (forkIO, newEmptyMVar, putMVar, takeMVar, threadDelay)
+import Control.Concurrent (MVar, forkIO, newEmptyMVar, putMVar, takeMVar, threadDelay)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
@@ -59,9 +59,8 @@ runWatch action = do
                             Lib.DirectoryCreated -> Lib.watchDirectory manager filePath
                             Lib.FileCreated -> Lib.watchFile manager filePath
                             _ -> pure ()
-        for_ (action workdir) $ \sh -> do
-            sleep
-            sh
+
+        for_ (action workdir) $ \sh -> sleep *> sh
 
         sleep
 
@@ -83,29 +82,13 @@ shouldTrigger expected action = do
         done <- liftIO $ newEmptyMVar
 
         -- timeout
-        liftIO $
-            forkIO $ do
-                threadDelay 1_000_000
-                putMVar done ()
+        liftIO $ forkIO $ threadDelay 1_000_000 *> putMVar done ()
 
         liftIO $
             forkIO $
                 Lib.withManager $ \manager -> do
                     Lib.watchDirectory manager $ SH.encodeString workdir
-
-                    Lib.keepWatching manager $ \Lib.Event{..} -> do
-                        modifyIORef' events $ (:) (sanitize workdir Lib.Event{..})
-
-                        case eventType of
-                            Lib.DirectoryCreated -> Lib.watchDirectory manager filePath
-                            Lib.FileCreated -> Lib.watchFile manager filePath
-                            _ -> pure ()
-
-                        currentEvents <- readIORef events
-                        when (length currentEvents >= length expected) $ do
-                            putMVar done ()
-                            -- block thread until it gets killed
-                            threadDelay 1_000_000
+                    handleEvents manager (length expected) done workdir events
 
         for_ (action workdir) $ \sh -> sleep *> sh
 
@@ -113,6 +96,21 @@ shouldTrigger expected action = do
 
     result <- readIORef events
     result `shouldMatchList` expected
+  where
+    handleEvents :: Lib.Manager -> Int -> MVar () -> SH.FilePath -> IORef [Lib.Event] -> IO ()
+    handleEvents manager n done workdir events
+        | n > 0 =
+            Lib.getEvent manager $ \Lib.Event{..} -> do
+                modifyIORef' events $ (:) (sanitize workdir Lib.Event{..})
+
+                case eventType of
+                    Lib.DirectoryCreated -> Lib.watchDirectory manager filePath
+                    Lib.FileCreated -> Lib.watchFile manager filePath
+                    _ -> pure ()
+
+                -- recurse
+                handleEvents manager (n - 1) done workdir events
+        | otherwise = putMVar done ()
 
 
 main :: IO ()

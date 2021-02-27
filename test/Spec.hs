@@ -65,7 +65,7 @@ runWatch action = do
         sleep
 
     -- longer sleep where we wait for extra events
-    liftIO $ threadDelay 300_000
+    liftIO $ threadDelay 1_000_000
     reverse <$> readIORef events
 
 

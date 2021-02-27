@@ -1,9 +1,9 @@
 module Main where
 
 import qualified Spec.Basic as Basic
-import Test.Hspec (hspec)
+import Test.Hspec (hspec, context)
 
 
 main :: IO ()
 main =
-    hspec $ Basic.spec
+    hspec $ context "Spec.Basic" Basic.spec

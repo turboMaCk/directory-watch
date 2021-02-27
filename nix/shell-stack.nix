@@ -2,5 +2,5 @@
 with pkgs;
 mkShell {
   name = "unix-recursive-stack-shell";
-  buildInputs = [ stack php psrecord fourmolu ];
+  buildInputs = [ stack fourmolu ];
 }

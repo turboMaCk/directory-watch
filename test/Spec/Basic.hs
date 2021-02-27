@@ -59,7 +59,7 @@ spec = do
                     , liftIO $ SH.writeTextFile (wd </> "baz") "Hello there!"
                     ]
 
-        it "should be able to recursively start watching new directories" $ do
+        it "Should be able to recursively start watching new directories" $ do
             shouldTrigger
                 [ Lib.Event
                     { Lib.eventType = Lib.DirectoryCreated

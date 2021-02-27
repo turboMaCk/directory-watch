@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -15,7 +16,7 @@ module System.Directory.Watch (
     poolSize,
 ) where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Exception as Exception
 import Control.Monad (forever, when)
 import Data.Functor (void)
@@ -138,7 +139,7 @@ watch manager path = do
         else watchFile manager path
 
 
-getEvent :: Manager -> (Event -> IO ()) -> IO ()
+getEvent :: Manager -> (Event -> IO a) -> IO a
 getEvent Manager{..} f = do
     iEvent <- Backend.getEvent handle
     snapshot <- Stm.readTVarIO registery
@@ -146,7 +147,9 @@ getEvent Manager{..} f = do
     let mPath = Map.lookup (Backend.getId iEvent) snapshot
     case mPath of
         Just (ft, path) -> case Backend.toEvent path iEvent of
-            Nothing -> logD "[Warning] Unknown event" iEvent
+            Nothing -> do
+                logD "[Warning] Unknown event" iEvent
+                getEvent Manager{..} f
             Just Action{..} ->
                 let act eventType = f $ Event{..}
                  in case actionType of
@@ -156,7 +159,11 @@ getEvent Manager{..} f = do
                         Removed -> case ft of
                             File -> act FileRemoved
                             Directory -> act DirectoryRemoved
-        Nothing -> logD "[ERROR] can't find path for " iEvent
+        Nothing -> do
+            logD "[ERROR] can't find path for " iEvent
+            -- give it some time
+            threadDelay 100_000
+            getEvent Manager{..} f
 
 
 keepWatching :: Manager -> (Event -> IO ()) -> IO ()

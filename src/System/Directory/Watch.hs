@@ -1,6 +1,6 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP #-}
 
 module System.Directory.Watch (
     Event (..),
@@ -64,9 +64,6 @@ data Event = Event
     , filePath :: !FilePath
     }
     deriving (Show, Eq)
-
-
-data Already
 
 
 withManager :: (Manager -> IO a) -> IO a
@@ -180,9 +177,11 @@ whenJust Nothing _ = pure ()
 
 {-# INLINE logD #-}
 logD :: Show a => String -> a -> IO ()
-logD desc val =
+
 #ifdef Log
+logD desc val =
     putStrLn $ "[[Watcher]] " <> desc <> " " <> show val
 #else
+logD _ _ =
     pure ()
 #endif

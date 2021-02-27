@@ -1,4 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 
 module System.Directory.Watch (
     Event (..),
@@ -14,10 +16,12 @@ module System.Directory.Watch (
 ) where
 
 import Control.Concurrent (forkIO)
-import Control.Exception (bracket)
+import qualified Control.Exception as Exception
 import Control.Monad (forever, when)
 import Data.Functor (void)
 import Data.Maybe (fromMaybe)
+import GHC.IO.Exception (IOException (..))
+
 import qualified System.Posix.Files as Posix
 
 import qualified Control.Concurrent.STM as Stm
@@ -62,33 +66,50 @@ data Event = Event
     deriving (Show, Eq)
 
 
+data Already
+
+
 withManager :: (Manager -> IO a) -> IO a
 withManager action =
-    bracket Backend.init Backend.close $ \handle ->
-        bracket Backend.init Backend.close $ \internalHandle -> do
+    Exception.bracket Backend.init Backend.close $ \handle ->
+        Exception.bracket Backend.init Backend.close $ \internalHandle -> do
             registery <- Stm.newTVarIO Map.empty
             internalRegMap <- Stm.newTVarIO Map.empty
 
-            -- Handle removal of watched directories
+            -- Perform removal of watched directories
             forkIO $
-                forever $ do
-                    backendEvent <- Backend.getEvent internalHandle
-                    putStrLn $ "[Internal] INotify event: " <> show backendEvent
+                -- backend handle can be already close
+                -- if that's the case we should gracefully exit
+                Exception.handle
+                    ( \(IOError{..} :: IOException) ->
+                        if ioe_description == "Bad file descriptor"
+                            then do
+                                logD "[Internal] Bad file descriptor handled " IOError{..}
+                                pure ()
+                            else do
+                                logD "[Internal] exception occured" ioe_description
+                                Exception.throwIO IOError{..}
+                    )
+                    $ forever $ do
+                        backendEvent <- Backend.getEvent internalHandle
+                        logD "[Internal] INotify event: " backendEvent
 
-                    Stm.atomically $ do
-                        mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
+                        Stm.atomically $ do
+                            mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
 
-                        -- Remove from registery
-                        whenJust mWatch $
-                            Stm.modifyTVar' registery . Map.delete
+                            -- Remove from registery
+                            whenJust mWatch $
+                                Stm.modifyTVar' registery . Map.delete
 
-                        -- Remove from internal map
-                        Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
+                            -- Remove from internal map
+                            Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
 
-                    regSize <- Map.size <$> Stm.readTVarIO registery
-                    intRegSize <- Map.size <$> Stm.readTVarIO internalRegMap
-                    putStrLn $ "[Info] Size of registery: " <> show regSize
-                    putStrLn $ "[Info] Size of intRegMap: " <> show intRegSize
+#ifdef Log
+                        regSize <- Map.size <$> Stm.readTVarIO registery
+                        intRegSize <- Map.size <$> Stm.readTVarIO internalRegMap
+                        logD "[Info] Size of registery: " regSize
+                        logD "[Info] Size of intRegMap: " intRegSize
+#endif
 
             action $ Manager{..}
 
@@ -129,7 +150,7 @@ getEvent Manager{..} f = do
     let mPath = Map.lookup (Backend.getId iEvent) snapshot
     case mPath of
         Just (ft, path) -> case Backend.toEvent path iEvent of
-            Nothing -> putStrLn $ "[Warning] Unknown event" <> show iEvent
+            Nothing -> logD "[Warning] Unknown event" iEvent
             Just Action{..} ->
                 let act eventType = f $ Event{..}
                  in case actionType of
@@ -139,7 +160,7 @@ getEvent Manager{..} f = do
                         Removed -> case ft of
                             File -> act FileRemoved
                             Directory -> act DirectoryRemoved
-        Nothing -> putStrLn $ "[ERROR] can't find path for " <> show iEvent
+        Nothing -> logD "[ERROR] can't find path for " iEvent
 
 
 keepWatching :: Manager -> (Event -> IO ()) -> IO ()
@@ -156,3 +177,13 @@ poolSize Manager{..} =
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust (Just v) f = f v
 whenJust Nothing _ = pure ()
+
+
+{-# INLINE logD #-}
+logD :: Show a => String -> a -> IO ()
+logD desc val =
+#ifdef Log
+    putStrLn $ "[[Watcher]] " <> desc <> " " <> show val
+#else
+    pure ()
+#endif

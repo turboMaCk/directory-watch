@@ -19,6 +19,10 @@ extra-source-files:
     README.md
     ChangeLog.md
 
+Flag log
+  default: False
+  manual: True
+
 source-repository head
   type: git
   location: https://github.com/turboMaCk/directory-watch
@@ -41,6 +45,8 @@ library
     , stm
     , unix
   default-language: Haskell2010
+  if flag(log)
+    CPP-Options: -DLog
   if os(linux)
     CPP-Options: -DOS_Linux
     build-depends: linux-inotify

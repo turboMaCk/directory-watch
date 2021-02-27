@@ -48,14 +48,17 @@ shouldTrigger expected action = do
         -- timeout
         _ <- liftIO $ forkIO $ threadDelay 1_000_000 *> putMVar done ()
 
+        -- start watch worker
         _ <- liftIO $
             forkIO $
                 Lib.withManager $ \manager -> do
                     Lib.watchDirectory manager $ SH.encodeString workdir
                     handleEvents manager (length expected) done workdir events
 
+        -- perform action
         for_ (action workdir) $ \sh -> sleep *> sh
 
+        -- wait for worker
         liftIO $ takeMVar done
 
     result <- readIORef events

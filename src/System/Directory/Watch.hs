@@ -1,7 +1,9 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module System.Directory.Watch (
     Event (..),
@@ -18,11 +20,14 @@ module System.Directory.Watch (
 
 import Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Exception as Exception
-import Control.Monad (forever, when)
+import Control.Monad (forever)
 import Data.Functor (void)
-import Data.Maybe (fromMaybe)
 import GHC.IO.Exception (IOException (..))
 
+import Data.ByteString.Char8 (pack)
+import qualified Data.ByteString.UTF8 as Utf8
+
+import System.Posix.ByteString.FilePath (RawFilePath)
 import qualified System.Posix.Files as Posix
 
 import qualified Control.Concurrent.STM as Stm
@@ -32,7 +37,7 @@ import qualified System.Directory.Watch.Backend as Backend
 import System.Directory.Watch.Portable
 
 
-type Registery = Map.HashMap Backend.Id (FileType, FilePath)
+type Registery = Map.HashMap Backend.Id (FileType, RawFilePath)
 
 
 {- | In theory these 2 should aline in a way that
@@ -75,32 +80,33 @@ withManager action =
             internalRegMap <- Stm.newTVarIO Map.empty
 
             -- Perform removal of watched directories
-            forkIO $
-                -- backend handle can be already close
-                -- if that's the case we should gracefully exit
-                Exception.handle
-                    ( \(IOError{..} :: IOException) ->
-                        if ioe_description == "Bad file descriptor"
-                            then do
-                                logD "[Internal] Bad file descriptor handled " IOError{..}
-                                pure ()
-                            else do
-                                logD "[Internal] exception occured" ioe_description
-                                Exception.throwIO IOError{..}
-                    )
-                    $ forever $ do
-                        backendEvent <- Backend.getEvent internalHandle
-                        logD "[Internal] INotify event: " backendEvent
+            void $
+                forkIO $
+                    -- backend handle can be already close
+                    -- if that's the case we should gracefully exit
+                    Exception.handle
+                        ( \(IOError{..} :: IOException) ->
+                            if ioe_description == "Bad file descriptor"
+                                then do
+                                    logD "[Internal] Bad file descriptor handled " IOError{..}
+                                    pure ()
+                                else do
+                                    logD "[Internal] exception occured" ioe_description
+                                    Exception.throwIO IOError{..}
+                        )
+                        $ forever $ do
+                            backendEvent <- Backend.getEvent internalHandle
+                            logD "[Internal] INotify event: " backendEvent
 
-                        Stm.atomically $ do
-                            mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
+                            Stm.atomically $ do
+                                mWatch <- Map.lookup (Backend.getId backendEvent) <$> Stm.readTVar internalRegMap
 
-                            -- Remove from registery
-                            whenJust mWatch $
-                                Stm.modifyTVar' registery . Map.delete
+                                -- Remove from registery
+                                whenJust mWatch $
+                                    Stm.modifyTVar' registery . Map.delete
 
-                            -- Remove from internal map
-                            Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
+                                -- Remove from internal map
+                                Stm.modifyTVar' internalRegMap $ Map.delete $ Backend.getId backendEvent
 #ifdef Log
                         regSize <- Map.size <$> Stm.readTVarIO registery
                         intRegSize <- Map.size <$> Stm.readTVarIO internalRegMap
@@ -111,23 +117,25 @@ withManager action =
             action $ Manager{..}
 
 
-watching :: Manager -> FileType -> FilePath -> Backend.Id -> IO ()
-watching Manager{..} fileType path watch = do
+watching :: Manager -> FileType -> RawFilePath -> Backend.Id -> IO ()
+watching Manager{..} fileType path wId = do
     internalWatch <- Backend.internalWatch internalHandle path
     Stm.atomically $ do
         -- Add to registery
-        Stm.modifyTVar' registery $ Map.insert watch (fileType, path)
+        Stm.modifyTVar' registery $ Map.insert wId (fileType, path)
         -- Add to internal reg map
-        Stm.modifyTVar' internalRegMap $ Map.insert internalWatch watch
+        Stm.modifyTVar' internalRegMap $ Map.insert internalWatch wId
 
 
 watchDirectory :: Manager -> FilePath -> IO ()
-watchDirectory Manager{..} path = do
+watchDirectory Manager{..} (pack -> path) = do
+    logD "[Info] watching directory" path
     Backend.watchDirectory handle path >>= watching Manager{..} Directory path
 
 
 watchFile :: Manager -> FilePath -> IO ()
-watchFile Manager{..} path = do
+watchFile Manager{..} (pack -> path) = do
+    logD "[Info] watching file" path
     Backend.watchFile handle path >>= watching Manager{..} File path
 
 
@@ -150,8 +158,9 @@ getEvent Manager{..} f = do
             Nothing -> do
                 logD "[Warning] Unknown event" iEvent
                 getEvent Manager{..} f
-            Just Action{..} ->
-                let act eventType = f $ Event{..}
+            Just Action{rawFilePath, actionType} ->
+                let filePath = Utf8.toString rawFilePath
+                    act eventType = f $ Event{..}
                  in case actionType of
                         (Created File) -> act FileCreated
                         (Created Directory) -> act DirectoryCreated

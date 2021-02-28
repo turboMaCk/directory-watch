@@ -1,10 +1,12 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module System.Directory.Watch.Backend.Inotify where
 
-import qualified Data.ByteString.UTF8 as Utf8
-import qualified Data.HashMap.Strict as Map
+import qualified Data.ByteString as BS
 import qualified System.Linux.Inotify as Inotify
+import System.Posix.ByteString.FilePath (RawFilePath)
+
 import Prelude hiding (init)
 
 import System.Directory.Watch.Portable
@@ -29,13 +31,12 @@ close = Inotify.close
 {-# INLINE close #-}
 
 
-toEvent :: FilePath -> BackendEvent -> Maybe Action
+toEvent :: RawFilePath -> BackendEvent -> Maybe Action
 toEvent path Inotify.Event{..} = (\actionType -> Action{..}) <$> mActionType
   where
-    decodedName = Utf8.toString name
-    filePath
-        | null decodedName = path
-        | otherwise = path <> "/" <> decodedName
+    rawFilePath
+        | BS.null name = path
+        | otherwise = path <> "/" <> name
     mActionType
         | Inotify.isSubset Inotify.in_IGNORED mask = Just Removed
         | Inotify.isSubset Inotify.in_ISDIR mask = Just $ Created Directory
@@ -45,15 +46,15 @@ toEvent path Inotify.Event{..} = (\actionType -> Action{..}) <$> mActionType
 {-# INLINE toEvent #-}
 
 
-watchDirectory :: Handle -> FilePath -> IO Id
+watchDirectory :: Handle -> RawFilePath -> IO Id
 watchDirectory handle path =
-    Inotify.addWatch handle path Inotify.in_CREATE
+    Inotify.addWatch_ handle path Inotify.in_CREATE
 {-# INLINE watchDirectory #-}
 
 
-watchFile :: Handle -> FilePath -> IO Id
+watchFile :: Handle -> RawFilePath -> IO Id
 watchFile handle path =
-    Inotify.addWatch handle path Inotify.in_CLOSE_WRITE
+    Inotify.addWatch_ handle path Inotify.in_CLOSE_WRITE
 {-# INLINE watchFile #-}
 
 
@@ -73,7 +74,7 @@ getId Inotify.Event{..} = wd
 {-# INLINE getId #-}
 
 
-internalWatch :: Handle -> FilePath -> IO Id
+internalWatch :: Handle -> RawFilePath -> IO Id
 internalWatch handle path =
-    Inotify.addWatch handle path Inotify.in_DELETE_SELF
+    Inotify.addWatch_ handle path Inotify.in_DELETE_SELF
 {-# INLINE internalWatch #-}

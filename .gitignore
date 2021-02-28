@@ -4,3 +4,11 @@
 /test/workdir/**/*
 !/test/workdir/.gitkeep
 /result*
+
+# measurements files
+/measurements
+!/measuremenets/.gitkeep
+*.ps
+*.hp
+*.prof
+*.aux

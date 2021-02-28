@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
@@ -9,10 +10,8 @@ import qualified System.Posix.Files as Posix
 import qualified System.Posix.Recursive as Recursive
 
 
-main :: IO ()
-main = do
-    paths <- getArgs
-
+watch :: [FilePath] -> IO ()
+watch paths =
     Watch.withManager $ \manager -> do
         for_ paths $ watchPath manager
 
@@ -22,16 +21,23 @@ main = do
                 Watch.DirectoryCreated ->
                     watchPath manager filePath
                 Watch.FileCreated ->
-                    watchPath manager filePath
+                    Watch.watchFile manager filePath
                 _ ->
                     pure ()
   where
     watchPath manager path = do
-        paths <-
+        paths' <-
             Recursive.listCustom
                 Recursive.defConf
                     { Recursive.includeFile =
                         \stat _ -> pure (Posix.isRegularFile stat || Posix.isDirectory stat)
                     }
                 path
-        for_ paths $ Watch.watch manager
+
+        for_ paths' $ Watch.watch manager
+
+
+main :: IO ()
+main = do
+    paths <- getArgs
+    watch paths

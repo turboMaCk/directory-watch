@@ -4,6 +4,8 @@ module System.Directory.Watch.Portable (
     FileType (..),
 ) where
 
+import System.Posix.ByteString.FilePath (RawFilePath)
+
 
 data FileType
     = File
@@ -20,6 +22,6 @@ data ActionType
 
 data Action = Action
     { actionType :: !ActionType
-    , filePath :: !FilePath
+    , rawFilePath :: !RawFilePath
     }
     deriving (Show, Eq)
